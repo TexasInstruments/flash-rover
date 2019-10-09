@@ -30,14 +30,12 @@ var CMD_KIND = {
     writeBlock:  0xC4,
 };
 
-var device = "cc13x2_cc26x2";
-
 function Xflash(device) {
     this.cfg = {
-        fw:      "src/flash_rover_fw_" + device + "_gcc.bin",
-        ccxml:   "src/" + device + ".ccxml",
+        fw:      "dss/fw/" + device + ".bin",
+        ccxml:   "dss/ccxml/" + device + ".ccxml",
         timeout: 15000, // 15 seconds
-        log:     "dss_log.xml",
+        log:     "dss/dss_log.xml",
         session: "Texas Instruments XDS110 USB Debug Probe/Cortex_M(3|4)_0",
     };
 

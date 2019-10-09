@@ -21,7 +21,7 @@
                 <choice Name="Only one XDS110 installed" value="0">
                 </choice>
                 <choice Name="Select by serial number" value="1">
-                    <property Type="stringfield" Value="L4100009" id="-- Enter the serial number"/>
+                    <property Type="stringfield" Value="<<<SERIAL NUMBER>>>" id="-- Enter the serial number"/>
                 </choice>
             </property>
             <platform XML_version="1.2" id="platform_0">

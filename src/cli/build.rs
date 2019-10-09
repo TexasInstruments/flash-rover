@@ -1,21 +1,20 @@
-
 extern crate walkdir;
 
 use std::env;
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
 use walkdir::WalkDir;
 
 fn copy_dss_folder() {
-    let cwd = env::current_dir().unwrap();
     let out_dir = env::var("OUT_DIR").unwrap();
+    let target_dir = Path::new(&out_dir).join("../../..");
 
-    fs::remove_dir_all(Path::new(&out_dir).join("dss")).unwrap();
+    fs::remove_dir_all(target_dir.join("dss")).unwrap_or_default();
 
     for entry in WalkDir::new("dss") {
         let entry = entry.unwrap();
-        let out_entry = Path::new(&out_dir).join(entry.path());
+        let out_entry = target_dir.join(entry.path());
         if entry.path().is_dir() {
             std::fs::create_dir(out_entry).unwrap();
         } else if entry.path().is_file() {

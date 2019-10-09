@@ -9,7 +9,7 @@ use std::{
     fs::File,
     io,
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
     process,
 };
 
@@ -29,7 +29,7 @@ impl fmt::Display for XflashInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{} (MID: {:X}, DID: {:X}, size: {})",
+            "{} (MID: 0x{:X}, DID: 0x{:X}, size: {})",
             self.name,
             self.manufacturer_id,
             self.device_id,
@@ -84,100 +84,26 @@ fn spi_pins_validate(dios: String) -> Result<(), String> {
     }
 }
 
-enum Command {
+enum CommandKind {
     Info,
-    SectorErase {
-        offset: u32,
-        length: u32,
-    },
+    SectorErase,
     MassErase,
-    Read {
-        offset: u32,
-        length: u32,
-        io: Box<dyn Write>,
-    },
-    Write {
-        erase: Option<bool>,
-        verify: Option<String>,
-        offset: u32,
-        length: Option<u32>,
-        io: Box<dyn Read>,
-    },
+    Read { io: Box<dyn Write> },
+    Write { io: Box<dyn Read> },
+}
+
+struct Command {
+    kind: CommandKind,
+    cmd: process::Command,
 }
 
 impl Command {
     fn from_matches<'a>(matches: &ArgMatches<'a>) -> Result<Self, Error> {
-        match matches.subcommand() {
-            ("info", _) => Ok(Command::Info),
-            ("erase", Some(erase_matches)) => {
-                if erase_matches.is_present("mass-erase") {
-                    Ok(Command::MassErase)
-                } else {
-                    Ok(Command::SectorErase {
-                        // unwrap is OK since offset and length are required and validated
-                        offset: value_t!(erase_matches, "offset", u32).unwrap(),
-                        length: value_t!(erase_matches, "length", u32).unwrap(),
-                    })
-                }
-            }
-            ("read", Some(read_matches)) => {
-                Ok(Command::Read {
-                    // unwrap is OK since offset and length are required and validated
-                    offset: value_t!(read_matches, "offset", u32).unwrap(),
-                    length: value_t!(read_matches, "length", u32).unwrap(),
-                    io: if let Some(output_path) = read_matches.value_of("output") {
-                        Box::new(File::create(output_path)?)
-                    } else {
-                        Box::new(io::stdout())
-                    },
-                })
-            }
-            ("write", Some(write_matches)) => {
-                Ok(Command::Write {
-                    erase: value_t!(write_matches, "erase", bool).ok(),
-                    verify: value_t!(write_matches, "verify", String).ok(),
-                    // Only unwrap on offset is OK, since length is not required
-                    offset: value_t!(write_matches, "offset", u32).unwrap(),
-                    length: if let Some(length) = write_matches.value_of("length") {
-                        Some(length.parse::<u32>().unwrap())
-                    } else {
-                        None
-                    },
-                    io: if let Some(input_path) = write_matches.value_of("input") {
-                        Box::new(File::open(input_path)?)
-                    } else {
-                        Box::new(io::stdin())
-                    },
-                })
-            }
-            // This is OK since subcommand is required
-            (_, _) => unreachable!(),
-        }
-    }
-}
+        let ccs = value_t!(matches, "ccs", String)?;
+        let device = value_t!(matches, "device", String)?;
+        let spi_pins = values_t!(matches, "spi-pins", String)?;
 
-struct Cli {
-    ccs: String,
-    xds: String,
-    device: String,
-    spi_pins: Vec<String>,
-    command: Command,
-}
-
-impl Cli {
-    fn from_matches<'a>(matches: &ArgMatches<'a>) -> Result<Self, Error> {
-        Ok(Self {
-            ccs: value_t!(matches, "ccs", String)?,
-            xds: value_t!(matches, "xds", String)?,
-            device: value_t!(matches, "device", String)?,
-            spi_pins: values_t!(matches, "spi-pins", String)?,
-            command: Command::from_matches(matches)?,
-        })
-    }
-
-    fn run<'a>(matches: &ArgMatches<'a>) -> Result<(), Error> {
-        let cli = Cli::from_matches(matches)?;
-        let dss = Path::new(&cli.ccs)
+        let dss = Path::new(&ccs)
             .join("ccs_base/scripting/bin/")
             .join(if cfg!(target_os = "windows") {
                 "dss.bat"
@@ -186,76 +112,262 @@ impl Cli {
             })
             .clean();
 
-        let exe = env::current_exe()?;
-        let pwd = exe.parent().unwrap();
-        let dss_script = pwd.join("src/dss_inject_fw.js").clean();
-        let ccxml = pwd.join("src").join(&cli.xds).clean();
+        let cwd = exe_dir()?;
+        let dss_script = cwd.join("dss/dss-flash-rover.js").clean();
 
-        println!("{:?}", dss_script);
-        println!("{:?}", ccxml);
-
-        let mut command = process::Command::new(dss);
-        command
-            .arg(dss_script)
-            .arg(&cli.device)
+        let mut cmd = process::Command::new(dss);
+        cmd.arg(dss_script)
+            .arg(&device)
             .arg("conf")
-            .args(&cli.spi_pins[..]);
+            .args(&spi_pins[..]);
 
-        match &cli.command {
-            Command::Info => {
-                command.arg("info");
-                let output = command.output()?;
-                if output.status.success() {
-                    let stdout = String::from_utf8_lossy(&output.stdout[..]);
-                    let mid_did: Vec<_> = stdout.trim().split(' ').collect();
-                    if mid_did.len() != 2 {
-                        return Err(err_msg("Firmware misbehaved during info command"));
-                    }
-                    let mid = mid_did[0]
-                        .parse::<u32>()
-                        .map_err(|_| err_msg("Invalid MID recieved"))?;
-                    let did = mid_did[1]
-                        .parse::<u32>()
-                        .map_err(|_| err_msg("Invalid DID recieved"))?;
-                    if let Some(xflash) = find_xflash(mid, did) {
-                        println!("{}", xflash);
+        match matches.subcommand() {
+            ("info", _) => {
+                cmd.arg("info");
+                Ok(Command {
+                    kind: CommandKind::Info,
+                    cmd: cmd,
+                })
+            }
+            ("erase", Some(erase_matches)) => {
+                if erase_matches.is_present("mass-erase") {
+                    cmd.arg("mass-erase");
+                    Ok(Command {
+                        kind: CommandKind::MassErase,
+                        cmd: cmd,
+                    })
+                } else {
+                    cmd.arg("sector-erase");
+                    Ok(Command {
+                        kind: CommandKind::SectorErase,
+                        cmd: cmd,
+                    })
+                }
+            }
+            ("read", Some(read_matches)) => {
+                cmd.arg("read")
+                    .arg(value_t!(read_matches, "offset", String).unwrap())
+                    .arg(value_t!(read_matches, "length", String).unwrap());
+                Ok(Command {
+                    kind: CommandKind::Read {
+                        io: if let Some(output_path) = read_matches.value_of("output") {
+                            Box::new(File::create(output_path)?)
+                        } else {
+                            Box::new(io::stdout())
+                        },
+                    },
+                    cmd: cmd,
+                })
+            }
+            ("write", Some(write_matches)) => {
+                cmd.arg("write")
+                    .arg(value_t!(write_matches, "offset", String).unwrap())
+                    .arg(value_t!(write_matches, "length", String).unwrap())
+                    .arg(if write_matches.is_present("erase") {
+                        "1"
                     } else {
-                        println!("Unsupported external flash (MID: {}, DID: {})", mid, did);
-                    }
-                } else {
-                    eprintln!("{}", String::from_utf8(output.stderr)?);
+                        "0"
+                    });
+                if write_matches.is_present("verify") {
+                    cmd.arg(value_t!(write_matches, "verify", String).unwrap());
                 }
+                Ok(Command {
+                    kind: CommandKind::Write {
+                        io: if let Some(input_path) = write_matches.value_of("input") {
+                            Box::new(File::open(input_path)?)
+                        } else {
+                            Box::new(io::stdin())
+                        },
+                    },
+                    cmd: cmd,
+                })
             }
-            Command::MassErase => {
-                command.arg("mass-erase");
-                print!("Starting mass erase, this may take some time... ");
-                let output = command.output()?;
-                if output.status.success() {
-                    println!("Done.");
-                } else {
-                    eprintln!("{}", String::from_utf8(output.stderr)?);
-                }
-            }
-            Command::SectorErase { offset, length } => {
-                command.arg("sector-erase");
+            // This is OK since subcommand is required
+            (_, _) => unreachable!(),
+        }
+    }
+}
 
-            }
-            Command::Read { offset, length, io } => {}
-            Command::Write {
-                erase,
-                verify,
-                offset,
-                length,
-                io,
-            } => {}
+fn exe_dir() -> io::Result<PathBuf> {
+    Ok(env::current_exe()?
+        .parent()
+        .ok_or(io::Error::from(io::ErrorKind::NotFound))?
+        .to_owned())
+}
+
+fn create_ccxml(xds: &str, device: &str) -> io::Result<()> {
+    let cwd = exe_dir()?;
+    let template = cwd
+        .join("dss/ccxml")
+        .join(format!("template_{}.ccxml", device))
+        .clean();
+    let ccxml = cwd
+        .join("dss/ccxml")
+        .join(format!("{}.ccxml", device))
+        .clean();
+
+    let mut content = Vec::new();
+    File::open(template)?.read_to_end(&mut content)?;
+
+    let content = String::from_utf8_lossy(&content[..]);
+    let pattern = "<<<SERIAL NUMBER>>>";
+    let content = content.replace(pattern, &xds);
+
+    File::create(ccxml)?.write_all(content.as_bytes())?;
+
+    Ok(())
+}
+
+struct Cli {
+    xds: String,
+    device: String,
+    command: Command,
+}
+
+impl Cli {
+    fn from_matches<'a>(matches: &ArgMatches<'a>) -> Result<Self, Error> {
+        Ok(Self {
+            xds: value_t!(matches, "xds", String)?,
+            device: value_t!(matches, "device", String)?,
+            command: Command::from_matches(matches)?,
+        })
+    }
+
+    fn run(&mut self) -> Result<(), Error> {
+        create_ccxml(&self.xds, &self.device)?;
+
+        env::set_current_dir(exe_dir()?)?;
+
+        match &mut self.command {
+            Command {
+                kind: CommandKind::Info,
+                cmd,
+            } => Cli::info(cmd)?,
+            Command {
+                kind: CommandKind::MassErase,
+                cmd,
+            } => Cli::mass_erase(cmd)?,
+            Command {
+                kind: CommandKind::SectorErase,
+                cmd,
+            } => Cli::sector_erase(cmd)?,
+            Command {
+                kind: CommandKind::Read { io },
+                cmd,
+            } => Cli::read(cmd, &mut *io)?,
+            Command {
+                kind: CommandKind::Write { io },
+                cmd,
+            } => Cli::write(cmd, &mut *io)?,
         }
 
         Ok(())
     }
 
-    fn info(&self, cmd: &mut process::Command) -> Result<(), Error> {
-        unimplemented!();
+    fn info(cmd: &mut process::Command) -> Result<(), Error> {
+        let output = cmd.output()?;
+        if !output.status.success() {
+            return Err(err_msg(
+                String::from_utf8_lossy(&output.stderr[..]).into_owned(),
+            ));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout[..]);
+        let mid_did: Vec<_> = stdout.trim().split(' ').collect();
+        if mid_did.len() != 2 {
+            return Err(err_msg("Firmware misbehaved during info command"));
+        }
+        let mid = mid_did[0]
+            .parse::<u32>()
+            .map_err(|_| err_msg("Invalid MID recieved"))?;
+        let did = mid_did[1]
+            .parse::<u32>()
+            .map_err(|_| err_msg("Invalid DID recieved"))?;
+
+        if let Some(xflash) = find_xflash(mid, did) {
+            println!("{}", xflash);
+        } else {
+            println!(
+                "Unknown and possible unsupported external flash (MID: {}, DID: {})",
+                mid, did
+            );
+        }
+
+        Ok(())
     }
+
+    fn mass_erase(cmd: &mut process::Command) -> Result<(), Error> {
+        print!("Starting mass erase, this may take some time... ");
+        let output = cmd.output()?;
+        if !output.status.success() {
+            println!("");
+            return Err(err_msg(
+                String::from_utf8_lossy(&output.stderr[..]).into_owned(),
+            ));
+        }
+
+        println!("Done.");
+        Ok(())
+    }
+
+    fn sector_erase(cmd: &mut process::Command) -> Result<(), Error> {
+        let output = cmd.output()?;
+        if !output.status.success() {
+            return Err(err_msg(
+                String::from_utf8_lossy(&output.stderr[..]).into_owned(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn read(cmd: &mut process::Command, io_output: &mut dyn Write) -> Result<(), Error> {
+        let mut child = cmd
+            .stdout(process::Stdio::piped())
+            .stderr(process::Stdio::piped())
+            .spawn()?;
+
+        {
+            let child_stdout = child.stdout.as_mut().unwrap();
+            io::copy(child_stdout, io_output)?;
+        }
+
+        let output = child.wait_with_output()?;
+
+        if !output.status.success() {
+            return Err(err_msg(
+                String::from_utf8_lossy(&output.stderr[..]).into_owned(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn write(cmd: &mut process::Command, io_input: &mut dyn Read) -> Result<(), Error> {
+        let mut child = cmd
+            .stdin(process::Stdio::piped())
+            .stderr(process::Stdio::piped())
+            .spawn()?;
+
+        {
+            let child_stdin = child.stdin.as_mut().unwrap();
+            io::copy(io_input, child_stdin)?;
+        }
+
+        let output = child.wait_with_output()?;
+
+        if !output.status.success() {
+            return Err(err_msg(
+                String::from_utf8_lossy(&output.stderr[..]).into_owned(),
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+fn cli<'a>(matches: &ArgMatches<'a>) -> Result<(), Error> {
+    Cli::from_matches(matches)?.run()
 }
 
 fn is_zero_or_positive(val: String) -> Result<(), String> {
@@ -377,7 +489,7 @@ fn main() {
         )
         .get_matches();
 
-    Cli::run(&matches).unwrap_or_else(|err| {
+    cli(&matches).unwrap_or_else(|err| {
         eprintln!("Error: {}", err);
         process::exit(1);
     });
