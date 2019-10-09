@@ -15,19 +15,15 @@
 #include DeviceFamily_constructPath(driverlib/gpio.h)
 #include DeviceFamily_constructPath(driverlib/cpu.h)
 
-#include "neither/neither.hpp"
-
 namespace bsp {
 
-#define EXT_FLASH_PAGE_SIZE   4096
-
-enum class ExtFlashError
+enum class XflashError
 {
     Generic,
     Unsupported,
 };
 
-struct ExtFlashInfo
+struct XflashInfo
 {
     uint32_t deviceSize{ 0 };
     uint8_t manfId{ 0 };
@@ -35,7 +31,7 @@ struct ExtFlashInfo
     bool supported{ false };
 };
 
-static constexpr std::array<ExtFlashInfo, 4> supportedHw = {{
+static constexpr std::array<XflashInfo, 4> supportedHw = {{
     // Macronics MX25R1635F
     {
         0x200000,  // 2 MByte (16 Mbit)
@@ -62,16 +58,16 @@ static constexpr std::array<ExtFlashInfo, 4> supportedHw = {{
     },
 }};
 
-struct ExtFlashObj
+struct XflashObj
 {
     uint32_t csn{ IOID_UNUSED };
 };
 
-constexpr const ExtFlashObj extFlashLp = {
+constexpr const XflashObj defaultXflashObj = {
     IOID_20,  /* csn */
 };
 
-class ExtFlash
+class Xflash
 {
 private:
     struct OpCode
@@ -97,20 +93,20 @@ private:
         static constexpr uint8_t BUSY = 0x01;
     };
 
-    ExtFlashObj         obj_;
+    XflashObj           obj_;
     Power::PeriphHandle gpioPeriph_;
     Spi&                spi_;
     struct
     {
-        ExtFlashInfo info{};
+        XflashInfo info{};
         bool valid{ false };
-    } extFlash_;
+    } xflash_;
 
 public:
     static constexpr uint32_t programPageSize = 256;
     static constexpr uint32_t eraseSectorSize = 4096;
 
-    ExtFlash(const ExtFlashObj& obj, Spi& spi, Power& power)
+    Xflash(const XflashObj& obj, Spi& spi, Power& power)
         : obj_{ obj }
         , gpioPeriph_{ power.openPeriph(Power::Periph::Gpio) }
         , spi_{ spi }
@@ -131,20 +127,20 @@ public:
         }
     }
 
-    ~ExtFlash()
+    ~Xflash()
     {
         close();
     }
 
-    neither::Either<ExtFlashInfo, ExtFlashError> getInfo() const
+    const XflashInfo* getInfo() const
     {
-        if (extFlash_.valid)
+        if (xflash_.valid)
         {
-            return neither::left(extFlash_.info);
+            return &xflash_.info;
         }
         else
         {
-            return neither::right(ExtFlashError::Generic);
+            return nullptr;
         }
     }
 
@@ -351,11 +347,11 @@ private:
             ret = spi_.read(rbuf, sizeof(rbuf));
             if (ret)
             {
-                extFlash_.info.manfId = rbuf[0];
-                extFlash_.info.devId = rbuf[1];
+                xflash_.info.manfId = rbuf[0];
+                xflash_.info.devId = rbuf[1];
             }
         }
-        extFlash_.valid = ret;
+        xflash_.valid = ret;
 
         deselect();
 
@@ -369,17 +365,17 @@ private:
             return false;
         }
 
-        if (!extFlash_.valid)
+        if (!xflash_.valid)
         {
             return false;
         }
 
-        for (const ExtFlashInfo& hw : supportedHw)
+        for (const XflashInfo& hw : supportedHw)
         {
-            if (extFlash_.info.manfId == hw.manfId && extFlash_.info.devId == hw.devId)
+            if (xflash_.info.manfId == hw.manfId && xflash_.info.devId == hw.devId)
             {
-                extFlash_.info.supported = true;
-                extFlash_.info.deviceSize = hw.deviceSize;
+                xflash_.info.supported = true;
+                xflash_.info.deviceSize = hw.deviceSize;
                 return true;
             }
         }

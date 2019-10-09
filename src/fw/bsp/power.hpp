@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <limits>
+
 #include <ti/devices/DeviceFamily.h>
 #include DeviceFamily_constructPath(driverlib/prcm.h)
 
@@ -14,7 +16,7 @@ class Power
 {
 private:
     using dep_count_t = uint8_t;
-    static constexpr dep_count_t max_dep_count = static_cast<dep_count_t>(~0);
+    static constexpr dep_count_t max_dep_count = std::numeric_limits<dep_count_t>::max();
 
     struct
     {
@@ -162,149 +164,144 @@ private:
         }
     }
 
-    void setDependency(Domain domain)
+    dep_count_t* getDepCount(Domain domain)
     {
-        auto inc_and_power_on = [&](dep_count_t &dep_count)
-        {
-            if (dep_count == max_dep_count)
-            {
-                return;
-            }
-
-            dep_count += 1;
-            if (dep_count == 1)
-            {
-                uint32_t u32domain = static_cast<uint32_t>(domain);
-                PRCMPowerDomainOn(u32domain);
-                while (PRCMPowerDomainStatus(u32domain) != PRCM_DOMAIN_POWER_ON);
-            }
-        };
-
         switch (domain)
         {
-        case Domain::RFCore: inc_and_power_on(counts_.domains.rfcore); break;
-        case Domain::Serial: inc_and_power_on(counts_.domains.serial); break;
-        case Domain::Periph: inc_and_power_on(counts_.domains.periph); break;
-        case Domain::Vims:   inc_and_power_on(counts_.domains.vims);   break;
-        case Domain::Sysbus: inc_and_power_on(counts_.domains.sysbus); break;
-        case Domain::Cpu:    inc_and_power_on(counts_.domains.cpu);    break;
-        default:             /* do nothing */                          break;
+        case Domain::RFCore: return &counts_.domains.rfcore;
+        case Domain::Serial: return &counts_.domains.serial;
+        case Domain::Periph: return &counts_.domains.periph;
+        case Domain::Vims:   return &counts_.domains.vims;
+        case Domain::Sysbus: return &counts_.domains.sysbus;
+        case Domain::Cpu:    return &counts_.domains.cpu;
+        default:             return nullptr;
+        }
+    }
+
+    dep_count_t* getDepCount(Periph periph)
+    {
+        switch (periph)
+        {
+        case Periph::Timer0: return &counts_.periphs.timer0;
+        case Periph::Timer1: return &counts_.periphs.timer1;
+        case Periph::Timer2: return &counts_.periphs.timer2;
+        case Periph::Timer3: return &counts_.periphs.timer3;
+        case Periph::Ssi0:   return &counts_.periphs.ssi0;
+        case Periph::Ssi1:   return &counts_.periphs.ssi1;
+        case Periph::Uart0:  return &counts_.periphs.uart0;
+        case Periph::Uart1:  return &counts_.periphs.uart1;
+        case Periph::I2c0:   return &counts_.periphs.i2c0;
+        case Periph::Crypto: return &counts_.periphs.crypto;
+        case Periph::Trng:   return &counts_.periphs.trng;
+        case Periph::Pka:    return &counts_.periphs.pka;
+        case Periph::Udma:   return &counts_.periphs.udma;
+        case Periph::Gpio:   return &counts_.periphs.gpio;
+        case Periph::I2s:    return &counts_.periphs.i2s;
+        default:             return nullptr;
+        }
+    }
+
+    void setDependency(Domain domain)
+    {
+        auto maybe_dep_count = getDepCount(domain);
+        if (maybe_dep_count == nullptr)
+        {
+            return;
+        }
+
+        auto& dep_count = *maybe_dep_count;
+
+        if (dep_count == max_dep_count)
+        {
+            return;
+        }
+
+        dep_count += 1;
+        if (dep_count == 1)
+        {
+            uint32_t u32domain = static_cast<uint32_t>(domain);
+            PRCMPowerDomainOn(u32domain);
+            while (PRCMPowerDomainStatus(u32domain) != PRCM_DOMAIN_POWER_ON);
         }
     }
 
     void clearDependency(Domain domain)
     {
-        auto dec_and_power_off = [&](dep_count_t &dep_count)
+        auto maybe_dep_count = getDepCount(domain);
+        if (maybe_dep_count == nullptr)
         {
-            if (dep_count == 0)
-            {
-                return;
-            }
+            return;
+        }
 
-            dep_count -= 1;
-            if (dep_count == 0)
-            {
-                uint32_t u32domain = static_cast<uint32_t>(domain);
-                PRCMPowerDomainOff(u32domain);
-                while (PRCMPowerDomainStatus(u32domain) != PRCM_DOMAIN_POWER_OFF);
-            }
-        };
+        auto& dep_count = *maybe_dep_count;
 
-        switch (domain)
+        if (dep_count == 0)
         {
-        case Domain::RFCore: dec_and_power_off(counts_.domains.rfcore); break;
-        case Domain::Serial: dec_and_power_off(counts_.domains.serial); break;
-        case Domain::Periph: dec_and_power_off(counts_.domains.periph); break;
-        case Domain::Vims:   dec_and_power_off(counts_.domains.vims);   break;
-        case Domain::Sysbus: dec_and_power_off(counts_.domains.sysbus); break;
-        case Domain::Cpu:    dec_and_power_off(counts_.domains.cpu);    break;
-        default:             /* do nothing */                           break;
+            return;
+        }
+
+        dep_count -= 1;
+        if (dep_count == 0)
+        {
+            uint32_t u32domain = static_cast<uint32_t>(domain);
+            PRCMPowerDomainOff(u32domain);
+            while (PRCMPowerDomainStatus(u32domain) != PRCM_DOMAIN_POWER_OFF);
         }
     }
 
     void setDependency(Periph periph)
     {
-        auto inc_and_power_on = [&](dep_count_t &dep_count)
+        auto maybe_dep_count = getDepCount(periph);
+        if (maybe_dep_count == nullptr)
         {
-            if (dep_count == max_dep_count)
-            {
-                return;
-            }
+            return;
+        }
 
-            dep_count += 1;
-            if (dep_count == 1)
-            {
-                Domain parent = getDomainDependency(periph);
-                setDependency(parent);
+        auto& dep_count = *maybe_dep_count;
 
-                uint32_t u32periph = static_cast<uint32_t>(periph);
-                PRCMPeripheralRunEnable(u32periph);
-                PRCMLoadSet();
-                while (!PRCMLoadGet());
-            }
-        };
-
-        switch (periph)
+        if (dep_count == max_dep_count)
         {
-        case Periph::Timer0: inc_and_power_on(counts_.periphs.timer0); break;
-        case Periph::Timer1: inc_and_power_on(counts_.periphs.timer1); break;
-        case Periph::Timer2: inc_and_power_on(counts_.periphs.timer2); break;
-        case Periph::Timer3: inc_and_power_on(counts_.periphs.timer3); break;
-        case Periph::Ssi0:   inc_and_power_on(counts_.periphs.ssi0);   break;
-        case Periph::Ssi1:   inc_and_power_on(counts_.periphs.ssi1);   break;
-        case Periph::Uart0:  inc_and_power_on(counts_.periphs.uart0);  break;
-        case Periph::Uart1:  inc_and_power_on(counts_.periphs.uart1);  break;
-        case Periph::I2c0:   inc_and_power_on(counts_.periphs.i2c0);   break;
-        case Periph::Crypto: inc_and_power_on(counts_.periphs.crypto); break;
-        case Periph::Trng:   inc_and_power_on(counts_.periphs.trng);   break;
-        case Periph::Pka:    inc_and_power_on(counts_.periphs.pka);    break;
-        case Periph::Udma:   inc_and_power_on(counts_.periphs.udma);   break;
-        case Periph::Gpio:   inc_and_power_on(counts_.periphs.gpio);   break;
-        case Periph::I2s:    inc_and_power_on(counts_.periphs.i2s);    break;
-        default:              /* do nothing */                         break;
+            return;
+        }
+
+        dep_count += 1;
+        if (dep_count == 1)
+        {
+            Domain parent = getDomainDependency(periph);
+            setDependency(parent);
+
+            uint32_t u32periph = static_cast<uint32_t>(periph);
+            PRCMPeripheralRunEnable(u32periph);
+            PRCMLoadSet();
+            while (!PRCMLoadGet());
         }
     }
 
     void clearDependency(Periph periph)
     {
-        auto dec_and_power_off = [&](dep_count_t &dep_count)
+        auto maybe_dep_count = getDepCount(periph);
+        if (maybe_dep_count == nullptr)
         {
-            if (dep_count == 0)
-            {
-                return;
-            }
+            return;
+        }
 
-            dep_count -= 1;
-            if (dep_count == 0)
-            {
-                uint32_t u32periph = static_cast<uint32_t>(periph);
-                PRCMPeripheralRunDisable(u32periph);
-                PRCMLoadSet();
-                while (!PRCMLoadGet());
+        auto& dep_count = *maybe_dep_count;
 
-                Domain parent = getDomainDependency(periph);
-                clearDependency(parent);
-            }
-        };
-
-        switch (periph)
+        if (dep_count == 0)
         {
-        case Periph::Timer0: dec_and_power_off(counts_.periphs.timer0); break;
-        case Periph::Timer1: dec_and_power_off(counts_.periphs.timer1); break;
-        case Periph::Timer2: dec_and_power_off(counts_.periphs.timer2); break;
-        case Periph::Timer3: dec_and_power_off(counts_.periphs.timer3); break;
-        case Periph::Ssi0:   dec_and_power_off(counts_.periphs.ssi0);   break;
-        case Periph::Ssi1:   dec_and_power_off(counts_.periphs.ssi1);   break;
-        case Periph::Uart0:  dec_and_power_off(counts_.periphs.uart0);  break;
-        case Periph::Uart1:  dec_and_power_off(counts_.periphs.uart1);  break;
-        case Periph::I2c0:   dec_and_power_off(counts_.periphs.i2c0);   break;
-        case Periph::Crypto: dec_and_power_off(counts_.periphs.crypto); break;
-        case Periph::Trng:   dec_and_power_off(counts_.periphs.trng);   break;
-        case Periph::Pka:    dec_and_power_off(counts_.periphs.pka);    break;
-        case Periph::Udma:   dec_and_power_off(counts_.periphs.udma);   break;
-        case Periph::Gpio:   dec_and_power_off(counts_.periphs.gpio);   break;
-        case Periph::I2s:    dec_and_power_off(counts_.periphs.i2s);    break;
-        default:              /* do nothing */                           break;
+            return;
+        }
+
+        dep_count -= 1;
+        if (dep_count == 0)
+        {
+            uint32_t u32periph = static_cast<uint32_t>(periph);
+            PRCMPeripheralRunDisable(u32periph);
+            PRCMLoadSet();
+            while (!PRCMLoadGet());
+
+            Domain parent = getDomainDependency(periph);
+            clearDependency(parent);
         }
     }
 };

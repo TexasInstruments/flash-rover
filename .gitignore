@@ -13,3 +13,6 @@ Cargo.lock
 *.bin
 *.dat
 
+# Ignore log files from dss
+dss_log.xml
+

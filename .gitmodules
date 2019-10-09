@@ -1,3 +1,0 @@
-[submodule "src/third_party/neither"]
-	path = src/third_party/neither
-	url = https://github.com/loopperfect/neither

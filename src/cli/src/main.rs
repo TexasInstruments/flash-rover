@@ -1,21 +1,88 @@
 #[macro_use]
 extern crate clap;
-extern crate serial;
-
-#[macro_use]
+extern crate byte_unit;
 extern crate failure;
+extern crate path_clean;
 
-use std::cmp;
-use std::fs::File;
-use std::io;
-use std::io::{Read, Write};
-use std::process;
-use std::time::Duration;
+use std::{
+    env, fmt,
+    fs::File,
+    io,
+    io::{Read, Write},
+    path::Path,
+    process,
+};
 
-use clap::{App, Arg, ArgGroup, ArgMatches, SubCommand};
-use serial::prelude::*;
-
+use byte_unit::Byte;
+use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use failure::{err_msg, Error};
+use path_clean::PathClean;
+
+struct XflashInfo {
+    manufacturer_id: u32,
+    device_id: u32,
+    size: u32,
+    name: &'static str,
+}
+
+impl fmt::Display for XflashInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} (MID: {:X}, DID: {:X}, size: {})",
+            self.name,
+            self.manufacturer_id,
+            self.device_id,
+            Byte::from_bytes(self.size as u128)
+                .get_appropriate_unit(true)
+                .to_string()
+        )
+    }
+}
+
+const SUPPORTED_XFLASH_HW: &'static [XflashInfo] = &[
+    XflashInfo {
+        manufacturer_id: 0xC2,
+        device_id: 0x15,
+        size: 0x200000,
+        name: "Macronics MX25R1635F",
+    },
+    XflashInfo {
+        manufacturer_id: 0xC2,
+        device_id: 0x14,
+        size: 0x100000,
+        name: "Macronics MX25R8035F",
+    },
+    XflashInfo {
+        manufacturer_id: 0xEF,
+        device_id: 0x12,
+        size: 0x80000,
+        name: "WinBond W25X40CL",
+    },
+    XflashInfo {
+        manufacturer_id: 0xEF,
+        device_id: 0x11,
+        size: 0x40000,
+        name: "WinBond W25X20CL",
+    },
+];
+
+fn find_xflash(mid: u32, did: u32) -> Option<&'static XflashInfo> {
+    for xflash in SUPPORTED_XFLASH_HW {
+        if xflash.manufacturer_id == mid && xflash.device_id == did {
+            return Some(xflash);
+        }
+    }
+    None
+}
+
+fn spi_pins_validate(dios: String) -> Result<(), String> {
+    if dios.split(',').all(|dio| dio.parse::<u32>().is_ok()) {
+        Ok(())
+    } else {
+        Err(String::from("DIO values must be positive integers"))
+    }
+}
 
 enum Command {
     Info,
@@ -27,407 +94,175 @@ enum Command {
     Read {
         offset: u32,
         length: u32,
-        io: Box<Write>,
+        io: Box<dyn Write>,
     },
     Write {
+        erase: Option<bool>,
+        verify: Option<String>,
         offset: u32,
         length: Option<u32>,
-        io: Box<Read>,
+        io: Box<dyn Read>,
     },
 }
 
-enum SerialCmd {
-    Synchronize,
-    FlashInfo,
-    SectorErase {
-        offset: u32,
-        length: u32,
-    },
-    MassErase,
-    Read {
-        offset: u32,
-        length: u32,
-    },
-    StartWrite,
-    DataWrite {
-        offset: u32,
-        length: u32,
-        data: Vec<u8>,
-    },
-}
-
-#[derive(Debug)]
-enum SerialRsp {
-    Ack,
-    AckPend,
-    FlashInfo {
-        manf_id: u8,
-        dev_id: u8,
-        dev_size: u32,
-    },
-    WriteSize {
-        length: u32,
-    },
-    DataRead {
-        offset: u32,
-        length: u32,
-        data: Vec<u8>,
-    },
-}
-
-#[derive(Debug)]
-enum SerialError {
-    Generic,
-    Serial,
-    ExtFlash,
-    Unsupported,
-    AddressRange,
-    BufferOverflow,
-}
-
-const SERIAL_SETTINGS: serial::PortSettings = serial::PortSettings {
-    baud_rate: serial::Baud115200,
-    char_size: serial::Bits8,
-    parity: serial::ParityNone,
-    stop_bits: serial::Stop1,
-    flow_control: serial::FlowNone,
-};
-
-impl SerialCmd {
-    const START_OP: u8 = 0xEF;
-
-    fn type_int(&self) -> u8 {
-        match self {
-            SerialCmd::Synchronize => 0xC0,
-            SerialCmd::FlashInfo => 0xC1,
-            SerialCmd::SectorErase { .. } => 0xC2,
-            SerialCmd::MassErase => 0xC3,
-            SerialCmd::Read { .. } => 0xC4,
-            SerialCmd::StartWrite => 0xC5,
-            SerialCmd::DataWrite { .. } => 0xC6,
-        }
-    }
-
-    fn into_bytes(mut self) -> Vec<u8> {
-        let mut bytes = vec![Self::START_OP, self.type_int()];
-        match self {
-            SerialCmd::Synchronize => {}
-            SerialCmd::FlashInfo => {}
-            SerialCmd::SectorErase {
-                offset: o,
-                length: l,
-            } => {
-                bytes.extend_from_slice(&o.to_le_bytes());
-                bytes.extend_from_slice(&l.to_le_bytes());
-            }
-            SerialCmd::MassErase => {}
-            SerialCmd::Read {
-                offset: o,
-                length: l,
-            } => {
-                bytes.extend_from_slice(&o.to_le_bytes());
-                bytes.extend_from_slice(&l.to_le_bytes());
-            }
-            SerialCmd::StartWrite => {}
-            SerialCmd::DataWrite {
-                offset: o,
-                length: l,
-                data: ref mut d,
-            } => {
-                bytes.extend_from_slice(&o.to_le_bytes());
-                bytes.extend_from_slice(&l.to_le_bytes());
-                bytes.append(d)
-            }
-        }
-        bytes
-    }
-}
-
-fn send_cmd(port: &mut SerialPort, cmd: SerialCmd) -> io::Result<()> {
-    let cmd_bytes = cmd.into_bytes();
-    port.write(&cmd_bytes[..])?;
-    Ok(())
-}
-
-fn recv_rsp(port: &mut SerialPort) -> io::Result<Result<SerialRsp, SerialError>> {
-    let mut read_buf = [0; 2];
-    port.read_exact(&mut read_buf)?;
-
-    if read_buf[0] != 0xEF {
-        return Ok(Err(SerialError::Serial));
-    }
-
-    match read_buf[1] {
-        0x01 => Ok(Ok(SerialRsp::Ack)),
-        0x02 => Ok(Ok(SerialRsp::AckPend)),
-        0x03 => {
-            let mut manf_id_buf = [0; 1];
-            let mut dev_id_buf = [0; 1];
-            let mut dev_size_buf = [0; 4];
-            port.read_exact(&mut manf_id_buf)?;
-            port.read_exact(&mut dev_id_buf)?;
-            port.read_exact(&mut dev_size_buf)?;
-            Ok(Ok(SerialRsp::FlashInfo {
-                manf_id: manf_id_buf[0],
-                dev_id: dev_id_buf[0],
-                dev_size: u32::from_le_bytes(dev_size_buf),
-            }))
-        }
-        0x04 => {
-            let mut length_buf = [0; 4];
-            port.read_exact(&mut length_buf)?;
-            Ok(Ok(SerialRsp::WriteSize {
-                length: u32::from_le_bytes(length_buf),
-            }))
-        }
-        0x05 => {
-            let mut offset_buf = [0; 4];
-            let mut length_buf = [0; 4];
-            port.read_exact(&mut offset_buf)?;
-            port.read_exact(&mut length_buf)?;
-            let offset = u32::from_le_bytes(offset_buf);
-            let length = u32::from_le_bytes(length_buf);
-            let mut data = vec![0; length as usize];
-            port.read_exact(&mut data[..])?;
-            Ok(Ok(SerialRsp::DataRead {
-                offset: offset,
-                length: length,
-                data: data,
-            }))
-        }
-        0x80 => Ok(Err(SerialError::Generic)),
-        0x81 => Ok(Err(SerialError::Serial)),
-        0x82 => Ok(Err(SerialError::ExtFlash)),
-        0x83 => Ok(Err(SerialError::Unsupported)),
-        0x84 => Ok(Err(SerialError::AddressRange)),
-        0x85 => Ok(Err(SerialError::BufferOverflow)),
-        _ => Ok(Err(SerialError::Generic)),
-    }
-}
-
-fn run(port_name: &str, cmd: Command) -> Result<(), Error> {
-    let mut port = serial::open(port_name).unwrap();
-    port.configure(&SERIAL_SETTINGS).unwrap();
-    port.set_timeout(Duration::from_secs(1)).unwrap();
-
-    send_cmd(&mut port, SerialCmd::Synchronize)?;
-    let rsp = recv_rsp(&mut port)?;
-    match rsp {
-        Ok(SerialRsp::Ack) => {}
-        _ => {}
-    };
-
-    match cmd {
-        Command::Info => {
-            send_cmd(&mut port, SerialCmd::FlashInfo)?;
-            match recv_rsp(&mut port)? {
-                Ok(SerialRsp::FlashInfo {
-                    manf_id,
-                    dev_id,
-                    dev_size,
-                }) => {
-                    println!("External flash info - Manufacturer ID: 0x{:X}, Device ID: 0x{:X}, Flash Size: {} bytes", manf_id, dev_id, dev_size);
-                    return Ok(());
-                }
-                _ => unimplemented!(),
-            }
-        }
-        Command::MassErase => {
-            send_cmd(&mut port, SerialCmd::MassErase)?;
-            match recv_rsp(&mut port)? {
-                Ok(SerialRsp::AckPend) => {}
-                _ => return Err(err_msg("mass erase, ack pend misbehave")),
-            };
-            loop {
-                match recv_rsp(&mut port) {
-                    Ok(rsp) => match rsp {
-                        Ok(SerialRsp::Ack) => return Ok(()),
-                        _ => return Err(err_msg("mass erase, ack misbehave")),
-                    },
-                    Err(err) => match err.kind() {
-                        io::ErrorKind::TimedOut => {}
-                        _ => return Err(err)?,
-                    },
-                };
-            }
-        }
-        Command::SectorErase { offset, length } => {
-            send_cmd(&mut port, SerialCmd::SectorErase { offset, length })?;
-            match recv_rsp(&mut port)? {
-                Ok(SerialRsp::AckPend) => {}
-                _ => return Err(err_msg("sector erase, ack pend misbehave")),
-            };
-            loop {
-                match recv_rsp(&mut port) {
-                    Ok(rsp) => match rsp {
-                        Ok(SerialRsp::Ack) => return Ok(()),
-                        _ => return Err(err_msg("sector erase, ack misbehave")),
-                    },
-                    Err(err) => match err.kind() {
-                        io::ErrorKind::TimedOut => {}
-                        _ => return Err(err)?,
-                    },
-                };
-            }
-        }
-        Command::Read {
-            offset,
-            length,
-            mut io,
-        } => {
-            send_cmd(&mut port, SerialCmd::Read { offset, length })?;
-            match recv_rsp(&mut port)? {
-                Ok(SerialRsp::AckPend) => {}
-                _ => return Err(err_msg("read, ack pend misbehave")),
-            };
-
-            loop {
-                match recv_rsp(&mut port) {
-                    Ok(rsp) => match rsp {
-                        Ok(SerialRsp::Ack) => return Ok(()),
-                        Ok(SerialRsp::DataRead {
-                            offset: _,
-                            length: _,
-                            data,
-                        }) => {
-                            io.write(&data)?;
-                        }
-                        _ => return Err(err_msg("read, ack misbehave")),
-                    },
-                    Err(err) => match err.kind() {
-                        io::ErrorKind::TimedOut => {}
-                        _ => return Err(err)?,
-                    },
-                };
-            }
-        }
-        Command::Write {
-            mut offset,
-            length,
-            mut io,
-        } => {
-            let mut buf = Vec::new();
-            if let Some(length_cap) = length {
-                io.take(length_cap as u64).read_to_end(&mut buf)?;
-            } else {
-                io.read_to_end(&mut buf)?;
-            };
-
-            let mut buf_length = buf.len();
-            let mut buf_offset = 0;
-            if buf_length == 0 {
-                return Ok(());
-            }
-
-            send_cmd(&mut port, SerialCmd::StartWrite)?;
-            let write_size = match recv_rsp(&mut port)? {
-                Ok(SerialRsp::WriteSize { length }) => length as usize,
-                _ => return Err(err_msg("write, write size misbehave")),
-            };
-
-            loop {
-                let ilength = cmp::min(write_size, buf_length);
-
-                send_cmd(
-                    &mut port,
-                    SerialCmd::DataWrite {
-                        offset: offset,
-                        length: ilength as u32,
-                        data: (&buf[buf_offset..ilength]).to_vec(),
-                    },
-                )?;
-                match recv_rsp(&mut port)? {
-                    Ok(SerialRsp::AckPend) => {}
-                    _ => return Err(err_msg("write, ack pend misbehave")),
-                };
-
-                loop {
-                    match recv_rsp(&mut port) {
-                        Ok(rsp) => match rsp {
-                            Ok(SerialRsp::Ack) => break,
-                            _ => return Err(err_msg("write, ack misbehave")),
-                        },
-                        Err(err) => match err.kind() {
-                            io::ErrorKind::TimedOut => {}
-                            _ => return Err(err)?,
-                        },
-                    };
-                }
-
-                buf_length -= ilength;
-                offset += ilength as u32;
-                buf_offset += ilength;
-                if buf_length == 0 {
-                    return Ok(());
+impl Command {
+    fn from_matches<'a>(matches: &ArgMatches<'a>) -> Result<Self, Error> {
+        match matches.subcommand() {
+            ("info", _) => Ok(Command::Info),
+            ("erase", Some(erase_matches)) => {
+                if erase_matches.is_present("mass-erase") {
+                    Ok(Command::MassErase)
+                } else {
+                    Ok(Command::SectorErase {
+                        // unwrap is OK since offset and length are required and validated
+                        offset: value_t!(erase_matches, "offset", u32).unwrap(),
+                        length: value_t!(erase_matches, "length", u32).unwrap(),
+                    })
                 }
             }
-        }
-    };
-}
-
-fn create_cmd<'a>(matches: &ArgMatches<'a>) -> Result<Command, Error> {
-    match matches.subcommand() {
-        ("info", _) => Ok(Command::Info),
-        ("erase", Some(erase_matches)) => {
-            if erase_matches.is_present("mass-erase") {
-                Ok(Command::MassErase)
-            } else {
-                Ok(Command::SectorErase {
-                    // unwrap is OK since offset and length are required
-                    offset: erase_matches
-                        .value_of("offset")
-                        .unwrap()
-                        .parse::<u32>()
-                        .map_err(|_| err_msg("invalid digit for argument 'offset'"))?,
-                    length: erase_matches
-                        .value_of("length")
-                        .unwrap()
-                        .parse::<u32>()
-                        .map_err(|_| err_msg("invalid digit for argument 'length'"))?,
+            ("read", Some(read_matches)) => {
+                Ok(Command::Read {
+                    // unwrap is OK since offset and length are required and validated
+                    offset: value_t!(read_matches, "offset", u32).unwrap(),
+                    length: value_t!(read_matches, "length", u32).unwrap(),
+                    io: if let Some(output_path) = read_matches.value_of("output") {
+                        Box::new(File::create(output_path)?)
+                    } else {
+                        Box::new(io::stdout())
+                    },
                 })
             }
+            ("write", Some(write_matches)) => {
+                Ok(Command::Write {
+                    erase: value_t!(write_matches, "erase", bool).ok(),
+                    verify: value_t!(write_matches, "verify", String).ok(),
+                    // Only unwrap on offset is OK, since length is not required
+                    offset: value_t!(write_matches, "offset", u32).unwrap(),
+                    length: if let Some(length) = write_matches.value_of("length") {
+                        Some(length.parse::<u32>().unwrap())
+                    } else {
+                        None
+                    },
+                    io: if let Some(input_path) = write_matches.value_of("input") {
+                        Box::new(File::open(input_path)?)
+                    } else {
+                        Box::new(io::stdin())
+                    },
+                })
+            }
+            // This is OK since subcommand is required
+            (_, _) => unreachable!(),
         }
-        ("read", Some(read_matches)) => {
-            Ok(Command::Read {
-                // unwrap is OK since offset and length are required
-                offset: read_matches
-                    .value_of("offset")
-                    .unwrap()
-                    .parse::<u32>()
-                    .map_err(|_| err_msg("invalid digit for argument 'offset'"))?,
-                length: read_matches
-                    .value_of("length")
-                    .unwrap()
-                    .parse::<u32>()
-                    .map_err(|_| err_msg("invalid digit for argument 'length'"))?,
-                io: if let Some(output_path) = read_matches.value_of("output") {
-                    Box::new(File::create(output_path).unwrap())
-                } else {
-                    Box::new(io::stdout())
-                },
+    }
+}
+
+struct Cli {
+    ccs: String,
+    xds: String,
+    device: String,
+    spi_pins: Vec<String>,
+    command: Command,
+}
+
+impl Cli {
+    fn from_matches<'a>(matches: &ArgMatches<'a>) -> Result<Self, Error> {
+        Ok(Self {
+            ccs: value_t!(matches, "ccs", String)?,
+            xds: value_t!(matches, "xds", String)?,
+            device: value_t!(matches, "device", String)?,
+            spi_pins: values_t!(matches, "spi-pins", String)?,
+            command: Command::from_matches(matches)?,
+        })
+    }
+
+    fn run<'a>(matches: &ArgMatches<'a>) -> Result<(), Error> {
+        let cli = Cli::from_matches(matches)?;
+        let dss = Path::new(&cli.ccs)
+            .join("ccs_base/scripting/bin/")
+            .join(if cfg!(target_os = "windows") {
+                "dss.bat"
+            } else {
+                "dss.sh"
             })
-        }
-        ("write", Some(write_matches)) => {
-            Ok(Command::Write {
-                // Only unwrap on offset is OK since length is not required
-                offset: write_matches
-                    .value_of("offset")
-                    .unwrap()
-                    .parse::<u32>()
-                    .map_err(|_| err_msg("invalid digit for argument 'offset'"))?,
-                length: if let Some(length) = write_matches.value_of("length") {
-                    Some(length.parse::<u32>()?)
+            .clean();
+
+        let exe = env::current_exe()?;
+        let pwd = exe.parent().unwrap();
+        let dss_script = pwd.join("src/dss_inject_fw.js").clean();
+        let ccxml = pwd.join("src").join(&cli.xds).clean();
+
+        println!("{:?}", dss_script);
+        println!("{:?}", ccxml);
+
+        let mut command = process::Command::new(dss);
+        command
+            .arg(dss_script)
+            .arg(&cli.device)
+            .arg("conf")
+            .args(&cli.spi_pins[..]);
+
+        match &cli.command {
+            Command::Info => {
+                command.arg("info");
+                let output = command.output()?;
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout[..]);
+                    let mid_did: Vec<_> = stdout.trim().split(' ').collect();
+                    if mid_did.len() != 2 {
+                        return Err(err_msg("Firmware misbehaved during info command"));
+                    }
+                    let mid = mid_did[0]
+                        .parse::<u32>()
+                        .map_err(|_| err_msg("Invalid MID recieved"))?;
+                    let did = mid_did[1]
+                        .parse::<u32>()
+                        .map_err(|_| err_msg("Invalid DID recieved"))?;
+                    if let Some(xflash) = find_xflash(mid, did) {
+                        println!("{}", xflash);
+                    } else {
+                        println!("Unsupported external flash (MID: {}, DID: {})", mid, did);
+                    }
                 } else {
-                    None
-                },
-                io: if let Some(input_path) = write_matches.value_of("input") {
-                    Box::new(File::open(input_path)?)
+                    eprintln!("{}", String::from_utf8(output.stderr)?);
+                }
+            }
+            Command::MassErase => {
+                command.arg("mass-erase");
+                print!("Starting mass erase, this may take some time... ");
+                let output = command.output()?;
+                if output.status.success() {
+                    println!("Done.");
                 } else {
-                    Box::new(io::stdin())
-                },
-            })
+                    eprintln!("{}", String::from_utf8(output.stderr)?);
+                }
+            }
+            Command::SectorErase { offset, length } => {
+                command.arg("sector-erase");
+
+            }
+            Command::Read { offset, length, io } => {}
+            Command::Write {
+                erase,
+                verify,
+                offset,
+                length,
+                io,
+            } => {}
         }
-        (scmd, _) => Err(err_msg(format!("unsupported subcommand {}", scmd))),
+
+        Ok(())
+    }
+
+    fn info(&self, cmd: &mut process::Command) -> Result<(), Error> {
+        unimplemented!();
+    }
+}
+
+fn is_zero_or_positive(val: String) -> Result<(), String> {
+    if val.parse::<u32>().is_ok() {
+        Ok(())
+    } else {
+        Err(String::from("Value must be a zero or positive integer"))
     }
 }
 
@@ -435,25 +270,37 @@ fn main() {
     let matches = App::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!())
-        .about("Read and write to external flash")
-        .arg(Arg::with_name("xds-id")
-            .short("i")
-            .long("xds-id")
-            .value_name("ID")
-            //.required(true)
-            .help("The XDS ID of the debugger connected to the device, e.g. L4100847"))
-        .arg(Arg::with_name("serial-port")
-            .short("s")
-            .long("serial-port")
-            .value_name("PORT")
-            .required(true)
-            .help("Data serial port of the device"))
-        .arg(Arg::with_name("ccs-root")
+        .about("Read and write to the external flash")
+        .setting(AppSettings::SubcommandRequiredElseHelp)
+        .arg(Arg::with_name("ccs")
+            .help("Path to where CCS installed")
             .short("c")
-            .long("ccs-root")
+            .long("ccs")
             .value_name("PATH")
             .env("CCS_ROOT")
-            .help("Path to where CCS installed"))
+            .takes_value(true))
+        .arg(Arg::with_name("xds")
+            .help("The serial number ID of the XDS110 debugger connected to the device, e.g. L4100847")
+            .short("x")
+            .long("xds")
+            .value_name("ID")
+            .required(true))
+        .arg(Arg::with_name("device")
+            .help("The kind of device connected to the XDS110 debugger")
+            .short("d")
+            .long("device")
+            .value_name("KIND")
+            .possible_values(&["cc13x0", "cc26x0", "cc26x0r2", "cc13x2_cc26x2"])
+            .required(true))
+        .arg(Arg::with_name("spi-pins")
+            .help("Override default SPI DIOs for external flash access, defaults to DIOs used for external flash on LaunchPads")
+            .short("s")
+            .long("spi-pins")
+            .value_names(&["MISO", "MOSI", "CLK", "CSN"])
+            .value_delimiter(",")
+            .require_delimiter(true)
+            .default_value("8,9,10,20")
+            .validator(spi_pins_validate))
         .subcommand(SubCommand::with_name("info")
             .about("Get external flash device info")    
         )
@@ -461,83 +308,77 @@ fn main() {
             .about("Perform erase operation, either on sectors or mass erase")
             .arg(Arg::with_name("offset")
                 .help("Offset of bytes into external flash device to start erase")
-                .index(1))
+                .value_name("OFFSET")
+                .index(1)
+                .validator(is_zero_or_positive)
+                .required_unless("mass-erase"))
             .arg(Arg::with_name("length")
                 .help("Length of bytes to erase from offset")
-                .index(2))
-            .group(ArgGroup::with_name("erase-sector")
-                .args(&["offset", "length"])
-                .requires_all(&["offset", "length"])
-                .multiple(true))
+                .value_name("LENGTH")
+                .index(2)
+                .validator(is_zero_or_positive)
+                .required_unless("mass-erase"))
             .arg(Arg::with_name("mass-erase")
+                .help("Perform mass erase of the entire external flash device")
                 .short("m")
                 .long("mass-erase")
-                .help("Perform mass erase of the entire external flash device")
-                .conflicts_with("erase-sector"))
+                .conflicts_with_all(&["offset", "length"]))
         )
         .subcommand(SubCommand::with_name("read")
             .about("Read data from an address range on the external flash")
             .arg(Arg::with_name("offset")
                 .help("Offset of bytes into external flash device to start read")
+                .value_name("OFFSET")
                 .index(1)
+                .validator(is_zero_or_positive)
                 .required(true))
             .arg(Arg::with_name("length")
                 .help("Length of bytes to read from offset")
+                .value_name("LENGTH")
                 .index(2)
+                .validator(is_zero_or_positive)
                 .required(true))
             .arg(Arg::with_name("output")
                 .short("o")
                 .long("output")
                 .value_name("FILE")
-                .help("File to store contents of read data. Prints to stdout if not specified.")
+                .help("File to store read data. Will overwrite file. Writes to stdout if omitted.")
                 .takes_value(true))
         )
         .subcommand(SubCommand::with_name("write")
             .about("Write data to an address range on the external flash")
+            .arg(Arg::with_name("erase")
+                .help("Erase sectors before writing to them")
+                .short("e")
+                .long("erase"))
+            .arg(Arg::with_name("verify")
+                .help("Verify written data")
+                .short("v")
+                .long("verify")
+                .value_name("MODE")
+                .possible_values(&["crc", "readback"]))
             .arg(Arg::with_name("offset")
                 .help("Offset of bytes into external flash device to start write")
+                .value_name("OFFSET")
                 .index(1)
+                .validator(is_zero_or_positive)
                 .required(true))
             .arg(Arg::with_name("length")
                 .help("Length of bytes to write from offset")
-                .index(2))
+                .value_name("LENGTH")
+                .index(2)
+                .validator(is_zero_or_positive))
             .arg(Arg::with_name("input")
                 .short("i")
                 .long("input")
                 .value_name("FILE")
-                .help("File to read contents of write data. Reads from stdin if not specified.")
+                .help("File to read contents of data to write. Reads from stdin if omitted.")
                 .takes_value(true))
         )
         .get_matches();
 
-    if matches.subcommand_name().is_none() {
-        eprintln!("{}", matches.usage());
+    Cli::run(&matches).unwrap_or_else(|err| {
+        eprintln!("Error: {}", err);
         process::exit(1);
-    }
-
-    // let ccs_root = Path::new(matches.value_of("ccs-root").unwrap_or_else(||
-    //     clap::Error::with_description("Unable to locate CCS installation path. Please specify argument --ccs-root or set environment variable $CCS_ROOT.",
-    //                                   clap::ErrorKind::EmptyValue)
-    //         .exit()
-    // ));
-    // if !ccs_root.is_dir() {
-    //     clap::Error::with_description("Provided CCS root is not a valid path", clap::ErrorKind::InvalidValue)
-    //         .exit();
-    // }
-
-    // This is OK since xds-id is required
-    //let xds_id = matches.value_of("xds-id").unwrap();
-
-    // println!("CCS root: {:?}", ccs_root);
-    // println!("XDS ID: {}", xds_id);
-
-    let serial_port = matches.value_of("serial-port").unwrap();
-
-    create_cmd(&matches)
-        .map(|cmd| run(serial_port, cmd))
-        .unwrap_or_else(|err| {
-            eprintln!("error: {}", err);
-            process::exit(1);
-        })
-        .unwrap();
+    });
 }

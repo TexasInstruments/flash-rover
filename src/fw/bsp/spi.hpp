@@ -14,38 +14,29 @@
 
 namespace bsp {
 
+struct SpiPins
+{
+    uint32_t miso{ IOID_UNUSED };
+    uint32_t mosi{ IOID_UNUSED };
+    uint32_t clk{ IOID_UNUSED };
+    uint32_t csn{ IOID_UNUSED };
+} __attribute__((packed));
+
 struct SpiObj
 {
-    Power::Periph periph;
-    uint32_t base;
-    struct
-    {
-        uint32_t miso;
-        uint32_t mosi;
-        uint32_t csn;
-        uint32_t clk;
-    } pins;
+    Power::Periph periph{ Power::Periph::None };
+    uint32_t base{ 0xFFFFFFFF };
+    SpiPins pins{};
 };
 
-constexpr const SpiObj spi0Obj = {
+constexpr const SpiObj defaultSpiObj = {
     Power::Periph::Ssi0,  /* periph */
     SSI0_BASE,            /* base */
     {                     /* pins */
          IOID_8,          /* miso */
          IOID_9,          /* mosi */
-         IOID_UNUSED,     /* csn */
          IOID_10,         /* clk */
-    },
-};
-
-constexpr const SpiObj spi1Obj = {
-    Power::Periph::Ssi1,  /* periph */
-    SSI1_BASE,            /* base */
-    {                     /* pins */
-         IOID_UNUSED,     /* miso */
-         IOID_UNUSED,     /* mosi */
          IOID_UNUSED,     /* csn */
-         IOID_UNUSED,     /* clk */
     },
 };
 

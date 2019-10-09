@@ -124,7 +124,7 @@ public:
             case Cmd::Type::DataWrite:
                 ret =        uart_.read(reinterpret_cast<uint8_t *>(&cmd.arg0), sizeof(uint32_t));
                 ret = ret && uart_.read(reinterpret_cast<uint8_t *>(&cmd.arg1), sizeof(uint32_t));
-                ret = ret && uart_.read(buf, std::min(cmd.arg1, len));
+                ret = ret && uart_.read(buf, std::min((size_t)cmd.arg1, len));
                 uart_.flush();
                 if (!ret)
                 {

@@ -1,42 +1,42 @@
 
-#include <string.h>
-
+#include <sys/_stdint.h>
+#include <ti/devices/cc13x2_cc26x2/driverlib/interrupt.h>
 #include <limits>
 
-#include "spi.hpp"
-#include "power.hpp"
-#include "uart.hpp"
-#include "ext_flash.hpp"
-#include "serialize.hpp"
+#include "bsp/conf.hpp"
+#include "bsp/doorbell.hpp"
+#include "bsp/ext_flash.hpp"
+#include "bsp/power.hpp"
+#include "bsp/spi.hpp"
 #include "hard_fault.hpp"
-
-#include <ti/devices/DeviceFamily.h>
-#include DeviceFamily_constructPath(driverlib/interrupt.h)
 
 using namespace bsp;
 
-
 RegDump_t regDump;
 
+__attribute__((section (".conf")))
+volatile const Conf conf;
+
+__attribute__((section (".doorbell")))
+volatile Doorbell doorbell;
+
+#define XFLASH_BUF_SIZE  0x1000
+
+__attribute__((section (".xflashbuf")))
+uint8_t xflashbuf[XFLASH_BUF_SIZE];
 
 class Loop
 {
 private:
-    Power&    power_;
-    Uart      uart_;
-    Serialize serialize_;
-    Spi       spi_;
-    ExtFlash  extFlash_;
-
-    uint8_t extFlashBuf_[ExtFlash::programPageSize];
+    Spi     spi_;
+    Xflash  xflash_;
+    Server  server_;
 
 public:
-    Loop(Power& power, UartObj uartObj, SpiObj spiObj)
-        : power_{ power }
-        , uart_{ uartObj, power_ }
-        , serialize_{ uart_ }
-        , spi_{ spiObj, power_ }
-        , extFlash_{ extFlashLp, spi_, power_ }
+    Loop(Power& power, const SpiObj& spiObj, const XflashObj& xflashObj)
+        : spi_{ spiObj, power }
+        , xflash_{ xflashObj, spi_, power }
+        , server_{ doorbell }
     {
     }
 
@@ -48,255 +48,160 @@ public:
     {
         while (true)
         {
-            auto cmd = serialize_.readCmd(extFlashBuf_, sizeof(extFlashBuf_));
+            auto cmd = server_.waitForCommand();
+            Response rsp;
 
-            switch (cmd.type)
+            switch (cmd.kind)
             {
-            case Serialize::Cmd::Type::Sync:
-                sync(cmd);
-                break;
-
-            case Serialize::Cmd::Type::FlashInfo:
-                flashInfo(cmd);
-                break;
-
-            case Serialize::Cmd::Type::MassErase:
-            case Serialize::Cmd::Type::Erase:
-                erase(cmd);
-                break;
-
-            case Serialize::Cmd::Type::Read:
-                read(cmd);
-                break;
-
-            case Serialize::Cmd::Type::StartWrite:
-                startWrite();
-                break;
-
-            case Serialize::Cmd::Type::DataWrite:
-                dataWrite(cmd);
-                break;
-
-            default:
-                sendError();
-                break;
+            case Command::Kind::XflashInfo:  rsp = xflashInfo(cmd);  break;
+            case Command::Kind::MassErase:   rsp = massErase(cmd);   break;
+            case Command::Kind::SectorErase: rsp = sectorErase(cmd); break;
+            case Command::Kind::ReadBlock:   rsp = readBlock(cmd);   break;
+            case Command::Kind::WriteBlock:  rsp = writeBlock(cmd);  break;
+            default:                         rsp = error();          break;
             }
+
+            server_.sendResponse(rsp);
         }
     }
 
 private:
-    void sync(Serialize::Cmd)
+    Response xflashInfo(const Command&)
     {
-        sendAck();
+        const auto* maybe_info = xflash_.getInfo();
+        if (maybe_info == nullptr)
+        {
+            return error(Response::Kind::ErrorXflash);
+        }
+
+        const auto& info = *maybe_info;
+
+        return {
+            Response::Kind::XflashInfo,
+            info.manfId,
+            info.devId
+        };
     }
 
-    void flashInfo(Serialize::Cmd)
+    Response massErase(const Command&)
     {
-        auto info = extFlash_.getInfo();
-        if (info.isLeft)
-        {
-            sendFlashInfo(info.leftValue);
-        }
-        else
-        {
-            sendError(Serialize::Response::Type::ErrorExtFlash);
-        }
-    }
-
-    void erase(Serialize::Cmd cmd)
-    {
-        sendAckPend();
-
-        bool ret;
-        if (cmd.type == Serialize::Cmd::Type::MassErase)
-        {
-            ret = extFlash_.massErase();
-        }
-        else
-        {
-            uint32_t offset = cmd.arg0;
-            uint32_t length = cmd.arg1;
-
-            if (!checkAddressRange(offset, length))
-            {
-                sendError(Serialize::Response::Type::ErrorAddressRange);
-                return;
-            }
-
-            ret = extFlash_.erase(length, offset);
-        }
+        bool ret = xflash_.massErase();
 
         if (ret)
         {
-            sendAck();
+            return {
+                Response::Kind::Ok
+            };
         }
         else
         {
-            sendError(Serialize::Response::Type::ErrorExtFlash);
+            return error(Response::Kind::ErrorXflash);
         }
     }
 
-    void read(Serialize::Cmd cmd)
+    Response sectorErase(const Command& cmd)
     {
-        sendAckPend();
-
         uint32_t offset = cmd.arg0;
         uint32_t length = cmd.arg1;
 
-        if (!checkAddressRange(offset, length))
+        bool ret = xflash_.erase(length, offset);
+
+        if (ret)
         {
-            sendError(Serialize::Response::Type::ErrorAddressRange);
-            return;
-        }
-
-        bool ret;
-        while (length > 0)
-        {
-            uint32_t ilength = std::min(length, sizeof(extFlashBuf_));
-
-            ret = extFlash_.read(extFlashBuf_, ilength, offset);
-            if (!ret)
-            {
-                sendError(Serialize::Response::Type::ErrorExtFlash);
-                return;
-            }
-
-            sendData(extFlashBuf_, ilength, offset);
-
-            offset += ilength;
-            length -= ilength;
-        }
-
-        sendAck();
-    }
-
-    void startWrite()
-    {
-        sendWriteSize();
-    }
-
-    void dataWrite(Serialize::Cmd cmd)
-    {
-        sendAckPend();
-
-        uint32_t offset = cmd.arg0;
-        uint32_t length = cmd.arg1;
-
-        if (length > sizeof(extFlashBuf_))
-        {
-            sendError(Serialize::Response::Type::ErrorBufferOverflow);
-            return;
-        }
-
-        if (!checkAddressRange(offset, length))
-        {
-            sendError(Serialize::Response::Type::ErrorAddressRange);
-            return;
-        }
-
-        bool ret = extFlash_.write(extFlashBuf_, length, offset);
-        if (!ret)
-        {
-            sendError(Serialize::Response::Type::ErrorExtFlash);
-            return;
-        }
-
-        sendAck();
-    }
-
-    bool checkAddressRange(uint32_t offset, uint32_t length) const
-    {
-        uint64_t endPoint = static_cast<uint64_t>(offset) + static_cast<uint64_t>(length);
-        if (endPoint > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
-        {
-            return false;
-        }
-
-        auto info = extFlash_.getInfo();
-        if (!info.isLeft)
-        {
-            return false;
-        }
-
-        uint64_t deviceSize = static_cast<uint64_t>(info.leftValue.deviceSize);
-        if (info.leftValue.supported && endPoint > deviceSize)
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    void sendAck()
-    {
-        serialize_.sendResponse(Serialize::Response{
-            Serialize::Response::Type::Ack
-        });
-    }
-
-    void sendAckPend()
-    {
-        serialize_.sendResponse(Serialize::Response{
-            Serialize::Response::Type::AckPend
-        });
-    }
-
-    void sendFlashInfo(const ExtFlashInfo& info)
-    {
-        if (info.supported)
-        {
-            serialize_.sendResponse(Serialize::Response{
-                Serialize::Response::Type::FlashInfo,
-                info.manfId,
-                info.devId,
-                info.deviceSize
-            });
+            return {
+                Response::Kind::Ok
+            };
         }
         else
         {
-            serialize_.sendResponse(Serialize::Response{
-                Serialize::Response::Type::ErrorUnsupported,
-                info.manfId,
-                info.devId
-            });
+            return error(Response::Kind::ErrorXflash);
         }
     }
 
-    void sendData(const uint8_t* buf, uint32_t length, uint32_t offset)
+    Response readBlock(const Command& cmd)
     {
-        serialize_.sendResponse(Serialize::Response{
-            Serialize::Response::Type::DataRead,
-            offset,
-            length
-        }, buf, length);
+        uint32_t offset = cmd.arg0;
+        uint32_t length = cmd.arg1;
+
+        if (length > XFLASH_BUF_SIZE)
+        {
+            return error(Response::Kind::ErrorBufOverflow);
+        }
+
+
+        bool ret = xflash_.read(xflashbuf, length, offset);
+
+        if (ret)
+        {
+            return {
+                Response::Kind::Ok
+            };
+        }
+        else
+        {
+            return error(Response::Kind::ErrorXflash);
+        }
     }
 
-    void sendWriteSize()
+    Response writeBlock(const Command& cmd)
     {
-        serialize_.sendResponse(Serialize::Response{
-            Serialize::Response::Type::WriteSize,
-            sizeof(extFlashBuf_)
-        });
+        uint32_t offset = cmd.arg0;
+        uint32_t length = cmd.arg1;
+
+        if (length > XFLASH_BUF_SIZE)
+        {
+            return error(Response::Kind::ErrorBufOverflow);
+        }
+
+        bool ret = xflash_.write(xflashbuf, length, offset);
+
+        if (ret)
+        {
+            return {
+                Response::Kind::Ok
+            };
+        }
+        else
+        {
+            return error(Response::Kind::ErrorXflash);
+        }
     }
 
-    void sendError(Serialize::Response::Type type = Serialize::Response::Type::Error)
+    Response error(Response::Kind kind = Response::Kind::Error)
     {
-        serialize_.sendResponse(Serialize::Response{
-            type
-        });
+        return { kind };
     }
 };
 
+void loop()
+{
+    SpiObj spiObj = defaultSpiObj;
+    XflashObj xflashObj = defaultXflashObj;
 
-int main(void)
+    if (conf.valid != 0)
+    {
+        // Note that CSN is software controlled, hence we set it in the
+        // xflashObj. Setting CSN in spiObj would make it HW controlled.
+        spiObj.pins.miso = conf.spiPins.miso;
+        spiObj.pins.mosi = conf.spiPins.mosi;
+        spiObj.pins.clk = conf.spiPins.clk;
+        xflashObj.csn = conf.spiPins.csn;
+    }
+
+    Power power;
+    Loop loop{ power, spiObj, xflashObj };
+    loop.run();
+}
+
+int main()
 {
     IntMasterEnable();
 
-    //openHardFaultDebugger(regDump);
+#ifndef MAKE_FW
+    openHardFaultDebugger(regDump);
+#endif
 
-    Power power;
-    Loop loop{ power, uart0Obj, spi0Obj };
-    loop.run();
+    loop();
 
     for (;;);
 }
