@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectSpec>
+    <project
+        name="flash_rover_fw_cc26x0_gcc"
+        description=""
+        device="Cortex M.CC2650F128"
+        configurations="Develop, Firmware"
+        ignoreDefaultDeviceSettings="true"
+        ignoreDefaultCCSSettings="true"
+        connection="TIXDS110_Connection.xml"
+        toolChain="GNU"
+        launchWizard="false"
+    >
+
+        <configuration
+            name="Develop"
+            compilerBuildOptions="
+                -DDeviceFamily_CC26X0
+                -I${PROJECT_ROOT}
+                -I${PROJECT_ROOT}/bsp
+                -I${COM_TI_SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR}/source
+                -I${CG_TOOL_ROOT}/arm-none-eabi/include/newlib-nano
+                -I${CG_TOOL_ROOT}/arm-none-eabi/include
+                -mcpu=cortex-m3
+                -march=armv7-m
+                -mthumb
+                -mfloat-abi=soft
+                -std=c99
+                -std=c++14
+                -ffunction-sections
+                -fdata-sections
+                -fno-exceptions
+                -fno-rtti
+                -Os
+                -g
+                -gstrict-dwarf
+                -Wall
+            "
+            linkerBuildOptions="
+                -occ26x0.out
+                -march=armv7-m
+                -mthumb
+                -mfloat-abi=soft
+                -nostartfiles
+                -static
+                -Wl,--gc-sections
+                -L${COM_TI_SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR}/source/ti/devices/cc26x0/driverlib/bin/gcc
+                -L${CG_TOOL_ROOT}/arm-none-eabi/lib
+                -ldriverlib.lib
+                -lgcc
+                -lc
+                -lstdc++_nano
+                -lm
+                -lnosys
+                --specs=nano.specs
+            "
+        />
+
+        <configuration
+            name="Firmware"
+            compilerBuildOptions="
+                -DMAKE_FW
+                -DDeviceFamily_CC26X0
+                -I${PROJECT_ROOT}
+                -I${PROJECT_ROOT}/bsp
+                -I${COM_TI_SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR}/source
+                -I${CG_TOOL_ROOT}/arm-none-eabi/include/newlib-nano
+                -I${CG_TOOL_ROOT}/arm-none-eabi/include
+                -mcpu=cortex-m3
+                -march=armv7-m
+                -mthumb
+                -mfloat-abi=soft
+                -std=c99
+                -std=c++14
+                -ffunction-sections
+                -fdata-sections
+                -fno-exceptions
+                -fno-rtti
+                -Os
+                -g
+                -gstrict-dwarf
+                -Wall
+            "
+            linkerBuildOptions="
+                -occ26x0.out
+                -march=armv7-m
+                -mthumb
+                -mfloat-abi=soft
+                -nostartfiles
+                -static
+                -Wl,--gc-sections
+                -L${COM_TI_SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR}/source/ti/devices/cc26x0/driverlib/bin/gcc
+                -L${CG_TOOL_ROOT}/arm-none-eabi/lib
+                -ldriverlib.lib
+                -lgcc
+                -lc
+                -lstdc++_nano
+                -lm
+                -lnosys
+                --specs=nano.specs
+            "
+            postBuildStep="
+                ${CG_TOOL_OBJCOPY} -O binary cc26x0.out cc26x0.bin;
+            "
+        />
+
+        <!-- Project properties -->
+        <property name="products" value="com.ti.SIMPLELINK_CC13XX_CC26XX_SDK:4.20.01.01"/>
+        <property name="target" value="ti.targets.arm.elf.M3"/>
+        <property name="platform" value="ti.platforms.simplelink:CC1350F128"/>
+        <property name="buildProfile" value="Develop"/>
+        <property name="isHybrid" value="true"/>
+
+        <pathVariable name="IMPORT_LOC" path="../.." scope="project"/>
+
+        <!-- Project files -->
+        <file path="IMPORT_LOC/main.cpp" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop, Firmware">
+        </file>
+        <file path="IMPORT_LOC/ccfg_app.c" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop">
+        </file>
+        <file path="IMPORT_LOC/hard_fault.cpp" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop, Firmware">
+        </file>
+        <file path="IMPORT_LOC/hard_fault.hpp" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop, Firmware">
+        </file>
+        <file path="IMPORT_LOC/bsp/bsp.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
+        </file>
+        <file path="IMPORT_LOC/bsp/conf.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
+        </file>
+        <file path="IMPORT_LOC/bsp/doorbell.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
+        </file>
+        <file path="IMPORT_LOC/bsp/ext_flash.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
+        </file>
+        <file path="IMPORT_LOC/bsp/power.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
+        </file>
+        <file path="IMPORT_LOC/bsp/spi.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
+        </file>
+        <file path="IMPORT_LOC/gcc/cc13x0-cc26x0/develop.lds" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop">
+        </file>
+        <file path="IMPORT_LOC/gcc/cc13x0-cc26x0/firmware.lds" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Firmware">
+        </file>
+        <file path="IMPORT_LOC/gcc/cc13x0-cc26x0/startup_gcc.c" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop, Firmware">
+        </file>
+    </project>
+</projectSpec>

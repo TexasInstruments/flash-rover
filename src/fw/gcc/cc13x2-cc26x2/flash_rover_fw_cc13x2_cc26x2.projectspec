@@ -10,47 +10,6 @@
         connection="TIXDS110_Connection.xml"
         toolChain="GNU"
         launchWizard="false"
-        compilerBuildOptions="
-            -DDeviceFamily_CC13X2
-            -I${PROJECT_ROOT}
-            -I${PROJECT_ROOT}/bsp
-            -I${PROJECT_ROOT}/third_party
-            -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source
-            -I${CG_TOOL_ROOT}/arm-none-eabi/include/newlib-nano
-            -I${CG_TOOL_ROOT}/arm-none-eabi/include
-            -mcpu=cortex-m4
-            -march=armv7e-m
-            -mthumb
-            -std=c99
-            -std=c++14
-            -mfloat-abi=hard
-            -mfpu=fpv4-sp-d16
-            -ffunction-sections
-            -fdata-sections
-            -fno-exceptions
-            -fno-rtti
-            -Os
-            -g
-            -gstrict-dwarf
-            -Wall"
-        linkerBuildOptions="
-            -march=armv7e-m
-            -mthumb
-            -mfloat-abi=hard
-            -mfpu=fpv4-sp-d16
-            -nostartfiles
-            -static
-            -Wl,--gc-sections
-            -L${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/devices/cc13x2_cc26x2/driverlib/bin/gcc
-            -L${CG_TOOL_ROOT}/arm-none-eabi/lib/thumb/v7e-m/fpv4-sp/hard
-            -L${CG_TOOL_ROOT}/arm-none-eabi/lib/hard
-            -ldriverlib.lib
-            -lgcc
-            -lc
-            -lstdc++_nano
-            -lm
-            -lnosys
-            --specs=nano.specs"
     >
 
         <configuration
@@ -59,8 +18,7 @@
                 -DDeviceFamily_CC13X2
                 -I${PROJECT_ROOT}
                 -I${PROJECT_ROOT}/bsp
-                -I${PROJECT_ROOT}/third_party
-                -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source
+                -I${COM_TI_SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR}/source
                 -I${CG_TOOL_ROOT}/arm-none-eabi/include/newlib-nano
                 -I${CG_TOOL_ROOT}/arm-none-eabi/include
                 -mcpu=cortex-m4
@@ -77,8 +35,10 @@
                 -Os
                 -g
                 -gstrict-dwarf
-                -Wall"
+                -Wall
+            "
             linkerBuildOptions="
+                -occ13x2_cc26x2.out
                 -march=armv7e-m
                 -mthumb
                 -mfloat-abi=hard
@@ -86,7 +46,7 @@
                 -nostartfiles
                 -static
                 -Wl,--gc-sections
-                -L${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/devices/cc13x2_cc26x2/driverlib/bin/gcc
+                -L${COM_TI_SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR}/source/ti/devices/cc13x2_cc26x2/driverlib/bin/gcc
                 -L${CG_TOOL_ROOT}/arm-none-eabi/lib/thumb/v7e-m/fpv4-sp/hard
                 -L${CG_TOOL_ROOT}/arm-none-eabi/lib/hard
                 -ldriverlib.lib
@@ -95,7 +55,8 @@
                 -lstdc++_nano
                 -lm
                 -lnosys
-                --specs=nano.specs"
+                --specs=nano.specs
+            "
         />
 
         <configuration
@@ -105,8 +66,7 @@
                 -DDeviceFamily_CC13X2
                 -I${PROJECT_ROOT}
                 -I${PROJECT_ROOT}/bsp
-                -I${PROJECT_ROOT}/third_party
-                -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source
+                -I${COM_TI_SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR}/source
                 -I${CG_TOOL_ROOT}/arm-none-eabi/include/newlib-nano
                 -I${CG_TOOL_ROOT}/arm-none-eabi/include
                 -mcpu=cortex-m4
@@ -123,8 +83,10 @@
                 -Os
                 -g
                 -gstrict-dwarf
-                -Wall"
+                -Wall
+            "
             linkerBuildOptions="
+                -occ13x2_cc26x2.out
                 -march=armv7e-m
                 -mthumb
                 -mfloat-abi=hard
@@ -132,7 +94,7 @@
                 -nostartfiles
                 -static
                 -Wl,--gc-sections
-                -L${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/devices/cc13x2_cc26x2/driverlib/bin/gcc
+                -L${COM_TI_SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR}/source/ti/devices/cc13x2_cc26x2/driverlib/bin/gcc
                 -L${CG_TOOL_ROOT}/arm-none-eabi/lib/thumb/v7e-m/fpv4-sp/hard
                 -L${CG_TOOL_ROOT}/arm-none-eabi/lib/hard
                 -ldriverlib.lib
@@ -141,18 +103,21 @@
                 -lstdc++_nano
                 -lm
                 -lnosys
-                --specs=nano.specs"
+                --specs=nano.specs
+            "
+            postBuildStep="
+                ${CG_TOOL_OBJCOPY} -O binary cc13x2_cc26x2.out cc13x2_cc26x2.bin;
+            "
         />
 
         <!-- Project properties -->
-        <property name="products" value="com.ti.SIMPLELINK_CC13X2_26X2_SDK"/>
+        <property name="products" value="com.ti.SIMPLELINK_CC13XX_CC26XX_SDK"/>
         <property name="target" value="ti.targets.arm.elf.M4F"/>
         <property name="platform" value="ti.platforms.simplelink:CC1352R1F3"/>
         <property name="buildProfile" value="Develop"/>
         <property name="isHybrid" value="true"/>
 
-        <pathVariable name="IMPORT_LOC" path=".." scope="project"/>
-        <pathVariable name="THIRD_PARTY_LOC" path="../../third_party" scope="project"/>
+        <pathVariable name="IMPORT_LOC" path="../.." scope="project"/>
 
         <!-- Project files -->
         <file path="IMPORT_LOC/main.cpp" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop, Firmware">
@@ -165,33 +130,21 @@
         </file>
         <file path="IMPORT_LOC/bsp/bsp.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
         </file>
+        <file path="IMPORT_LOC/bsp/conf.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
+        </file>
+        <file path="IMPORT_LOC/bsp/doorbell.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
+        </file>
         <file path="IMPORT_LOC/bsp/ext_flash.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
         </file>
         <file path="IMPORT_LOC/bsp/power.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
         </file>
-        <file path="IMPORT_LOC/bsp/serialize.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
-        </file>
         <file path="IMPORT_LOC/bsp/spi.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
         </file>
-        <file path="IMPORT_LOC/bsp/uart.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
+        <file path="IMPORT_LOC/gcc/cc13x2-cc26x2/develop.lds" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop">
         </file>
-        <file path="IMPORT_LOC/gcc/cc13x2_cc26x2.lds" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop">
+        <file path="IMPORT_LOC/gcc/cc13x2-cc26x2/firmware.lds" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Firmware">
         </file>
-        <file path="IMPORT_LOC/gcc/cc13x2_cc26x2_make_fw.lds" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Firmware">
-        </file>
-        <file path="IMPORT_LOC/gcc/startup_cc13x2_cc26x2_gcc.c" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop, Firmware">
-        </file>
-        <file path="THIRD_PARTY_LOC/neither/neither/include/either.hpp" openOnCreation="" excludeFromBuild="false" action="copy" targetDirectory="third_party/neither" applicableConfigurations="Develop, Firmware">
-        </file>
-        <file path="THIRD_PARTY_LOC/neither/neither/include/lift.hpp" openOnCreation="" excludeFromBuild="false" action="copy" targetDirectory="third_party/neither" applicableConfigurations="Develop, Firmware">
-        </file>
-        <file path="THIRD_PARTY_LOC/neither/neither/include/maybe.hpp" openOnCreation="" excludeFromBuild="false" action="copy" targetDirectory="third_party/neither" applicableConfigurations="Develop, Firmware">
-        </file>
-        <file path="THIRD_PARTY_LOC/neither/neither/include/neither.hpp" openOnCreation="" excludeFromBuild="false" action="copy" targetDirectory="third_party/neither" applicableConfigurations="Develop, Firmware">
-        </file>
-        <file path="THIRD_PARTY_LOC/neither/neither/include/traits.hpp" openOnCreation="" excludeFromBuild="false" action="copy" targetDirectory="third_party/neither" applicableConfigurations="Develop, Firmware">
-        </file>
-        <file path="THIRD_PARTY_LOC/neither/neither/include/try.hpp" openOnCreation="" excludeFromBuild="false" action="copy" targetDirectory="third_party/neither" applicableConfigurations="Develop, Firmware">
+        <file path="IMPORT_LOC/gcc/cc13x2-cc26x2/startup_gcc.c" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop, Firmware">
         </file>
     </project>
 </projectSpec>

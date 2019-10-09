@@ -12,7 +12,6 @@
 #include DeviceFamily_constructPath(inc/hw_types.h)
 #include DeviceFamily_constructPath(driverlib/setup.h)
 
-
 //*****************************************************************************
 //
 // Macro for weak symbol aliasing

@@ -61,6 +61,26 @@ public:
         None,
     };
 
+#if DeviceFamily_PARENT == DeviceFamily_PARENT_CC13X0_CC26X0
+    enum class Periph : uint32_t
+    {
+        Timer0 = PRCM_PERIPH_TIMER0,
+        Timer1 = PRCM_PERIPH_TIMER1,
+        Timer2 = PRCM_PERIPH_TIMER2,
+        Timer3 = PRCM_PERIPH_TIMER3,
+        Ssi0   = PRCM_PERIPH_SSI0,
+        Ssi1   = PRCM_PERIPH_SSI1,
+        Uart0  = PRCM_PERIPH_UART0,
+        I2c0   = PRCM_PERIPH_I2C0,
+        Crypto = PRCM_PERIPH_CRYPTO,
+        Trng   = PRCM_PERIPH_TRNG,
+        Udma   = PRCM_PERIPH_UDMA,
+        Gpio   = PRCM_PERIPH_GPIO,
+        I2s    = PRCM_PERIPH_I2S,
+        None,
+    };
+#endif
+#if DeviceFamily_PARENT == DeviceFamily_PARENT_CC13X2_CC26X2
     enum class Periph : uint32_t
     {
         Timer0 = PRCM_PERIPH_TIMER0,
@@ -80,6 +100,7 @@ public:
         I2s    = PRCM_PERIPH_I2S,
         None,
     };
+#endif
 
     class DomainHandle
     {
@@ -143,6 +164,26 @@ public:
 private:
     Domain getDomainDependency(Periph periph)
     {
+#if DeviceFamily_PARENT == DeviceFamily_PARENT_CC13X0_CC26X0
+        switch (periph)
+        {
+        case Periph::Timer0: return Domain::Periph;
+        case Periph::Timer1: return Domain::Periph;
+        case Periph::Timer2: return Domain::Periph;
+        case Periph::Timer3: return Domain::Periph;
+        case Periph::Ssi0:   return Domain::Serial;
+        case Periph::Ssi1:   return Domain::Periph;
+        case Periph::Uart0:  return Domain::Serial;
+        case Periph::I2c0:   return Domain::Serial;
+        case Periph::Crypto: return Domain::Periph;
+        case Periph::Trng:   return Domain::Periph;
+        case Periph::Udma:   return Domain::Periph;
+        case Periph::Gpio:   return Domain::Periph;
+        case Periph::I2s:    return Domain::Periph;
+        default:             return Domain::None;
+        }
+#endif
+#if DeviceFamily_PARENT == DeviceFamily_PARENT_CC13X2_CC26X2
         switch (periph)
         {
         case Periph::Timer0: return Domain::Periph;
@@ -162,6 +203,7 @@ private:
         case Periph::I2s:    return Domain::Periph;
         default:             return Domain::None;
         }
+#endif
     }
 
     dep_count_t* getDepCount(Domain domain)
@@ -180,6 +222,26 @@ private:
 
     dep_count_t* getDepCount(Periph periph)
     {
+#if DeviceFamily_PARENT == DeviceFamily_PARENT_CC13X0_CC26X0
+        switch (periph)
+        {
+        case Periph::Timer0: return &counts_.periphs.timer0;
+        case Periph::Timer1: return &counts_.periphs.timer1;
+        case Periph::Timer2: return &counts_.periphs.timer2;
+        case Periph::Timer3: return &counts_.periphs.timer3;
+        case Periph::Ssi0:   return &counts_.periphs.ssi0;
+        case Periph::Ssi1:   return &counts_.periphs.ssi1;
+        case Periph::Uart0:  return &counts_.periphs.uart0;
+        case Periph::I2c0:   return &counts_.periphs.i2c0;
+        case Periph::Crypto: return &counts_.periphs.crypto;
+        case Periph::Trng:   return &counts_.periphs.trng;
+        case Periph::Udma:   return &counts_.periphs.udma;
+        case Periph::Gpio:   return &counts_.periphs.gpio;
+        case Periph::I2s:    return &counts_.periphs.i2s;
+        default:             return nullptr;
+        }
+#endif
+#if DeviceFamily_PARENT == DeviceFamily_PARENT_CC13X2_CC26X2
         switch (periph)
         {
         case Periph::Timer0: return &counts_.periphs.timer0;
@@ -199,6 +261,7 @@ private:
         case Periph::I2s:    return &counts_.periphs.i2s;
         default:             return nullptr;
         }
+#endif
     }
 
     void setDependency(Domain domain)
