@@ -1,47 +1,6 @@
-/******************************************************************************
-*  Filename:       startup_gcc.c
-*  Revised:        $Date: 2017-05-03 09:38:39 +0200 (Mi, 03 Mai 2017) $
-*  Revision:       $Revision: 17771 $
-*
-*  Description:    Startup code for CC13x0 rev2 device family for use with GCC.
-*
-*  Copyright (C) 2017 Texas Instruments Incorporated - http://www.ti.com/
-*
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*    Redistributions of source code must retain the above copyright
-*    notice, this list of conditions and the following disclaimer.
-*
-*    Redistributions in binary form must reproduce the above copyright
-*    notice, this list of conditions and the following disclaimer in the
-*    documentation and/or other materials provided with the distribution.
-*
-*    Neither the name of Texas Instruments Incorporated nor the names of
-*    its contributors may be used to endorse or promote products derived
-*    from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-*  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-*  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-*  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-*  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-*  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-*  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-*  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-*  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*
-******************************************************************************/
+// This file is covered by the LICENSE file in the root of this project.
 
-//*****************************************************************************
-//
 // Check if compiler is GNU Compiler
-//
-//*****************************************************************************
 #if !(defined(__GNUC__))
 #error "startup_gcc.c: Unsupported compiler!"
 #endif
@@ -50,24 +9,15 @@
 #include DeviceFamily_constructPath(inc/hw_types.h)
 #include DeviceFamily_constructPath(driverlib/setup.h)
 
-//*****************************************************************************
-//
 // Macro for weak symbol aliasing
-//
-//*****************************************************************************
 #define WEAK_ALIAS(x) __attribute__ ((weak, alias(#x)))
 
-//*****************************************************************************
-//
 // Forward declaration of the reset ISR and the default fault handlers.
-//
-//*****************************************************************************
-void        ResetISR( void );
-static void NmiSRHandler( void );
-static void FaultISRHandler( void );
-static void IntDefaultHandler( void );
-extern int  main( void );
-
+void        ResetISR(void);
+static void NmiSRHandler(void);
+static void FaultISRHandler(void);
+static void IntDefaultHandler(void);
+extern int  main(void);
 
 // Default interrupt handlers
 void NmiSR(void) WEAK_ALIAS(NmiSRHandler);
@@ -113,13 +63,8 @@ void AUXCompAIntHandler(void) WEAK_ALIAS(IntDefaultHandler);
 void AUXADCIntHandler(void) WEAK_ALIAS(IntDefaultHandler);
 void TRNGIntHandler(void) WEAK_ALIAS(IntDefaultHandler);
 
-
-//*****************************************************************************
-//
 // The following are constructs created by the linker, indicating where the
 // the "data" and "bss" segments reside in memory.
-//
-//*****************************************************************************
 extern uint32_t __data_load__;
 extern uint32_t __data_start__;
 extern uint32_t __data_end__;
@@ -127,13 +72,9 @@ extern uint32_t __bss_start__;
 extern uint32_t __bss_end__;
 extern uint32_t __stack_end;
 
-//*****************************************************************************
-//
-//! The vector table. Note that the proper constructs must be placed on this to
-//! ensure that it ends up at physical address 0x0000.0000 or at the start of
-//! the program if located at a start address other than 0.
-//
-//*****************************************************************************
+// The vector table. Note that the proper constructs must be placed on this to
+// ensure that it ends up at physical address 0x0000.0000 or at the start of
+// the program if located at a start address other than 0.
 __attribute__ ((section(".resetVecs"), used))
 void (* const g_pfnVectors[])(void) =
 {
@@ -193,40 +134,28 @@ void (* const g_pfnVectors[])(void) =
     TRNGIntHandler                          // 49 TRNG event
 };
 
-
-//*****************************************************************************
-//
-//! This is the code that gets called when the processor first starts execution
-//! following a reset event. Only the absolutely necessary set is performed,
-//! after which the application supplied entry() routine is called. Any fancy
-//! actions (such as making decisions based on the reset cause register, and
-//! resetting the bits in that register) are left solely in the hands of the
-//! application.
-//
-//*****************************************************************************
-void
-ResetISR(void)
+// This is the code that gets called when the processor first starts execution
+// following a reset event. Only the absolutely necessary set is performed,
+// after which the application supplied entry() routine is called. Any fancy
+// actions (such as making decisions based on the reset cause register, and
+// resetting the bits in that register) are left solely in the hands of the
+// application.
+void ResetISR(void)
 {
     uint32_t *pSrc;
     uint32_t *pDest;
 
-    //
     // Final trim of device
-    //
     SetupTrimDevice();
-    
-    //
+
     // Copy the data segment initializers from FLASH to SRAM.
-    //
     pSrc = &__data_load__;
     for(pDest = &__data_start__; pDest < &__data_end__; )
     {
         *pDest++ = *pSrc++;
     }
 
-    //
     // Zero fill the bss segment.
-    //
     __asm("    ldr     r0, =__bss_start__\n"
           "    ldr     r1, =__bss_end__\n"
           "    mov     r2, #0\n"
@@ -237,67 +166,36 @@ ResetISR(void)
           "        strlt   r2, [r0], #4\n"
           "        blt     zero_loop");
 
-    //
     // Call the application's entry point.
-    //
     main();
 
-    //
     // If we ever return signal Error
-    //
     FaultISR();
 }
 
-//*****************************************************************************
-//
-//! This is the code that gets called when the processor receives a NMI. This
-//! simply enters an infinite loop, preserving the system state for examination
-//! by a debugger.
-//
-//*****************************************************************************
-static void
-NmiSRHandler(void)
+// This is the code that gets called when the processor receives a NMI. This
+// simply enters an infinite loop, preserving the system state for examination
+// by a debugger.
+static void NmiSRHandler(void)
 {
-    //
     // Enter an infinite loop.
-    //
-    while(1)
-    {
-    }
+    for (;;);
 }
 
-//*****************************************************************************
-//
-//! This is the code that gets called when the processor receives a fault
-//! interrupt. This simply enters an infinite loop, preserving the system state
-//! for examination by a debugger.
-//
-//*****************************************************************************
-static void
-FaultISRHandler(void)
+// This is the code that gets called when the processor receives a fault
+// interrupt. This simply enters an infinite loop, preserving the system state
+// for examination by a debugger.
+static void FaultISRHandler(void)
 {
-    //
     // Enter an infinite loop.
-    //
-    while(1)
-    {
-    }
+    for (;;);
 }
 
-//*****************************************************************************
-//
-//! This is the code that gets called when the processor receives an unexpected
-//! interrupt. This simply enters an infinite loop, preserving the system state
-//! for examination by a debugger.
-//
-//*****************************************************************************
-static void
-IntDefaultHandler(void)
+// This is the code that gets called when the processor receives an unexpected
+// interrupt. This simply enters an infinite loop, preserving the system state
+// for examination by a debugger.
+static void IntDefaultHandler(void)
 {
-    //
     // Go into an infinite loop.
-    //
-    while(1)
-    {
-    }
+    for (;;);
 }

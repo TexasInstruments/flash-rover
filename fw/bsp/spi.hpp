@@ -1,3 +1,4 @@
+// This file is covered by the LICENSE file in the root of this project.
 
 #ifndef SPI_HPP_
 #define SPI_HPP_

@@ -1,3 +1,4 @@
+// This file is covered by the LICENSE file in the root of this project.
 
 #include <stdint.h>
 
@@ -200,9 +201,9 @@ int main()
 {
     IntMasterEnable();
 
-//#ifndef MAKE_FW
+#ifndef MAKE_FW
     openHardFaultDebugger(regDump);
-//#endif
+#endif
 
     loop();
 

@@ -1,3 +1,4 @@
+// This file is covered by the LICENSE file in the root of this project.
 
 #ifndef DOORBELL_HPP_
 #define DOORBELL_HPP_
@@ -116,7 +117,7 @@ public:
         doorbell_.rsp.arg0 = rsp.arg0;
         doorbell_.rsp.arg1 = rsp.arg1;
         doorbell_.rsp.arg2 = rsp.arg2;
-        // Kind must be set last, this trigger the response
+        // Kind must be set last, this will trigger the response
         doorbell_.rsp.kind = rsp.kind;
         // Wait until response has been consumed
         while (doorbell_.rsp.kind != Response::Kind::None);

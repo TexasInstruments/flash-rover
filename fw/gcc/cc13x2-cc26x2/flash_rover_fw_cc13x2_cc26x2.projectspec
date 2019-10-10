@@ -128,8 +128,6 @@
         </file>
         <file path="IMPORT_LOC/hard_fault.hpp" openOnCreation="" excludeFromBuild="false" action="link" applicableConfigurations="Develop, Firmware">
         </file>
-        <file path="IMPORT_LOC/bsp/bsp.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
-        </file>
         <file path="IMPORT_LOC/bsp/conf.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">
         </file>
         <file path="IMPORT_LOC/bsp/doorbell.hpp" openOnCreation="" excludeFromBuild="false" action="link" targetDirectory="bsp" createVirtualFolders="true" applicableConfigurations="Develop, Firmware">

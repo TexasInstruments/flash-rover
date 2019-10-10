@@ -1,3 +1,4 @@
+// This file is covered by the LICENSE file in the root of this project.
 
 #ifndef CONF_HPP_
 #define CONF_HPP_
