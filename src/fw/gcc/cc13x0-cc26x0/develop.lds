@@ -25,6 +25,7 @@ REGION_ALIAS("REGION_DATA",      SRAM);
 REGION_ALIAS("REGION_STACK",     SRAM);
 REGION_ALIAS("REGION_ARM_EXIDX", FLASH);
 REGION_ALIAS("REGION_ARM_EXTAB", FLASH);
+REGION_ALIAS("REGION_XFLASH_BUF", SRAM);
 
 SECTIONS {
 
@@ -82,6 +83,26 @@ SECTIONS {
     .ARM.extab : {
         *(.ARM.extab* .gnu.linkonce.armextab.*)
     } > REGION_ARM_EXTAB AT> REGION_ARM_EXTAB
+
+    PROVIDE (_conf_base_address = DEFINED(_conf_base_address)
+    								? _conf_base_address
+    								: 0x20003000);
+
+	.conf (_conf_base_address) : AT(_conf_base_address) {
+		KEEP (*(.conf))
+	} > REGION_DATA
+
+    PROVIDE (_doorbell_base_address = DEFINED(_doorbell_base_address)
+    								? _doorbell_base_address
+    								: 0x20003100);
+
+	.doorbell (_doorbell_base_address) : AT(_doorbell_base_address) {
+		KEEP (*(.doorbell))
+	} > REGION_DATA
+
+	.xflashbuf (NOLOAD) : ALIGN(256) {
+		KEEP (*(.xflashbuf))
+	} > REGION_XFLASH_BUF
 
     .ccfg : {
         KEEP (*(.ccfg))

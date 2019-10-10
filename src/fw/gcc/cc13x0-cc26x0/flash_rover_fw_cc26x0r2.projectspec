@@ -45,6 +45,7 @@
                 -static
                 -Wl,--gc-sections
                 -L${COM_TI_SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR}/source/ti/devices/cc26x0r2/driverlib/bin/gcc
+                -L${CG_TOOL_ROOT}/arm-none-eabi/lib/thumb/v7-m
                 -L${CG_TOOL_ROOT}/arm-none-eabi/lib
                 -ldriverlib.lib
                 -lgcc
@@ -90,6 +91,7 @@
                 -static
                 -Wl,--gc-sections
                 -L${COM_TI_SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR}/source/ti/devices/cc26x0r2/driverlib/bin/gcc
+                -L${CG_TOOL_ROOT}/arm-none-eabi/lib/thumb/v7-m
                 -L${CG_TOOL_ROOT}/arm-none-eabi/lib
                 -ldriverlib.lib
                 -lgcc

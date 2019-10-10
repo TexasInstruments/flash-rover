@@ -1,7 +1,10 @@
 
-#include <sys/_stdint.h>
-#include <ti/devices/cc13x2_cc26x2/driverlib/interrupt.h>
+#include <stdint.h>
+
 #include <limits>
+
+#include <ti/devices/DeviceFamily.h>
+#include DeviceFamily_constructPath(driverlib/interrupt.h)
 
 #include "bsp/conf.hpp"
 #include "bsp/doorbell.hpp"
@@ -197,9 +200,9 @@ int main()
 {
     IntMasterEnable();
 
-#ifndef MAKE_FW
+//#ifndef MAKE_FW
     openHardFaultDebugger(regDump);
-#endif
+//#endif
 
     loop();
 
