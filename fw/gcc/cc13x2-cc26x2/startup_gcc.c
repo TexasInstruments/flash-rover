@@ -197,7 +197,7 @@ static void
 NmiSRHandler(void)
 {
     // Enter an infinite loop.
-    for (;;):
+    for (;;);
 }
 
 // This is the code that gets called when the processor receives a fault
@@ -207,7 +207,7 @@ static void
 FaultISRHandler(void)
 {
     // Enter an infinite loop.
-    for (;;):
+    for (;;);
 }
 
 // This is the code that gets called when the processor receives an unexpected
@@ -217,5 +217,5 @@ static void
 IntDefaultHandler(void)
 {
     // Go into an infinite loop.
-    for (;;):
+    for (;;);
 }

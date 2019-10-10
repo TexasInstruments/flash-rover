@@ -15,3 +15,5 @@ Cargo.lock
 # Ignore log files from dss
 dss_log.xml
 
+# Ignore output folder
+output/

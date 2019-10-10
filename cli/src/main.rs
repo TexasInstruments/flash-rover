@@ -1,3 +1,5 @@
+// This file is covered by the LICENSE file in the root of this project.
+
 #[macro_use]
 extern crate clap;
 extern crate byte_unit;
@@ -414,7 +416,7 @@ fn main() {
             .default_value("8,9,10,20")
             .validator(spi_pins_validate))
         .subcommand(SubCommand::with_name("info")
-            .about("Get external flash device info")    
+            .about("Get external flash device info")
         )
         .subcommand(SubCommand::with_name("erase")
             .about("Perform erase operation, either on sectors or mass erase")
