@@ -2,6 +2,7 @@
 name = "flash-rover"
 version = "0.1.0"
 authors = ["Texas Instruments <ti.com>"]
+license = "BSD-3-Clause"
 edition = "2018"
 build = "build.rs"
 
