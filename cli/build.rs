@@ -1,4 +1,7 @@
-// This file is covered by the LICENSE file in the root of this project.
+// Copyright (c) 2019 , Texas Instruments.
+// Licensed under the BSD-3-Clause license
+// (see LICENSE or <https://opensource.org/licenses/BSD-3-Clause>) All files in the project
+// notice may not be copied, modified, or distributed except according to those terms.
 
 extern crate walkdir;
 
@@ -32,7 +35,7 @@ fn copy_dss_folder() {
         ccs_dir.join("flash_rover_fw_cc26x0r2_gcc/Firmware/cc26x0r2.bin"),
         ccs_dir.join("flash_rover_fw_cc13x2_cc26x2_gcc/Firmware/cc13x2_cc26x2.bin"),
     ];
-    
+
     fs::create_dir(&fw_dir).unwrap();
     for fw in fws {
         fs::copy(fw, fw_dir.join(fw.file_name().unwrap())).unwrap();

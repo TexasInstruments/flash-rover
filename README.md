@@ -1,2 +1,5 @@
 
-# flash-rover &ndash; read and write from external flash
+flash-rover
+-----------
+
+Licensed under BSD-3-Clause license.

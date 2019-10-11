@@ -1,3 +1,8 @@
+// Copyright (c) 2019 , Texas Instruments.
+// Licensed under the BSD-3-Clause license
+// (see LICENSE or <https://opensource.org/licenses/BSD-3-Clause>) All files in the project
+// notice may not be copied, modified, or distributed except according to those terms.
+
 // Import the DSS packages into our namespace to save on typing
 importPackage(Packages.com.ti.debug.engine.scripting)
 importPackage(Packages.com.ti.ccstudio.scripting.environment)
