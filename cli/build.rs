@@ -18,10 +18,24 @@ fn copy_dss_folder() {
         let entry = entry.unwrap();
         let out_entry = target_dir.join(entry.path());
         if entry.path().is_dir() {
-            std::fs::create_dir(out_entry).unwrap();
+            fs::create_dir(out_entry).unwrap();
         } else if entry.path().is_file() {
-            std::fs::copy(entry.path(), out_entry).unwrap();
+            fs::copy(entry.path(), out_entry).unwrap();
         }
+    }
+
+    let fw_dir = Path::new(&out_dir).join("../../../dss/fw");
+    let ccs_dir = Path::new("../fw/workspace");
+    let fws = &[
+        ccs_dir.join("flash_rover_fw_cc13x0_gcc/Firmware/cc13x0.bin"),
+        ccs_dir.join("flash_rover_fw_cc26x0_gcc/Firmware/cc26x0.bin"),
+        ccs_dir.join("flash_rover_fw_cc26x0r2_gcc/Firmware/cc26x0r2.bin"),
+        ccs_dir.join("flash_rover_fw_cc13x2_cc26x2_gcc/Firmware/cc13x2_cc26x2.bin"),
+    ];
+    
+    fs::create_dir(&fw_dir).unwrap();
+    for fw in fws {
+        fs::copy(fw, fw_dir.join(fw.file_name().unwrap())).unwrap();
     }
 }
 

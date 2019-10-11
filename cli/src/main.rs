@@ -277,7 +277,7 @@ impl Cli {
         let stdout = String::from_utf8_lossy(&output.stdout[..]);
         let mid_did: Vec<_> = stdout.trim().split(' ').collect();
         if mid_did.len() != 2 {
-            return Err(err_msg("Firmware misbehaved during info command"));
+            return Err(err_msg(format!("Got unexpected output during info command: {}", stdout.trim())));
         }
         let mid = mid_did[0]
             .parse::<u32>()
