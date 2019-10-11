@@ -197,21 +197,27 @@ Xflash.prototype.read = function(offset, length) {
     }
 
     System.out.flush();
+    System.out.close();
 }
 
-Xflash.prototype.write = function(offset, length) {
+Xflash.prototype.write_fixed = function(offset, length, erase) {
+    var buf = new Array(XFLASH_BUF_SIZE);
+
+    if (erase) {
+        this.erase(offset, length);
+    }
 
     while (length > 0) {
-        var ilength = java.lang.Math.min(length, XFLASH_BUF_SIZE);
+        var ilength = java.lang.Math.min(length, buf.length());
 
         // This is a sloppy implementation because the writeData() API takes a
         // long[] array, while the read() API only accepts byte[] arrays. I
         // haven't found a trivial conversion between these two arrays without
         // manually reading byte by byte.
-        var buf = new Array(ilength);
         for (var i = 0; i < ilength; i++) {
             buf[i] = System['in'].read();
         }
+
         this.debug_session.memory.writeData(0, XFLASH_BUF, buf, 8);
 
         var writeBlockCmd = {
@@ -227,6 +233,52 @@ Xflash.prototype.write = function(offset, length) {
         }
 
         length -= ilength;
+        offset += ilength;
+    }
+}
+
+Xflash.prototype.write_stream = function(offset, erase) {
+    var buf = new Array(XFLASH_BUF_SIZE);
+
+    var is = System['in'];
+    var is_buf = java.lang.reflect.Array.newInstance(java.lang.Byte.TYPE, XFLASH_BUF_SIZE);
+
+    var erase_boundary = offset;
+
+    while (is.available() > 0) {
+        var ilength = is.read(is_buf);
+
+        // This is a sloppy implementation because the writeData() API takes a
+        // long[] array, while the read() API only accepts byte[] arrays. I
+        // haven't found a trivial conversion between these two arrays without
+        // manually reading byte by byte.
+        for (var i = 0; i < ilength; i++) {
+            buf[i] = is_buf[i];
+        }
+
+        if (erase) {
+            var iend = offset + ilength - 1;
+            if (iend >= erase_boundary) {
+                this.sectorErase(offset, ilength);
+                var sector_size = 4096;
+                erase_boundary = Math.floor((iend + sector_size) / sector_size) * sector_size;                
+            }
+        }
+        
+        this.debug_session.memory.writeData(0, XFLASH_BUF, buf, 8);
+
+        var writeBlockCmd = {
+            kind: CMD_KIND.writeBlock,
+            arg0: offset,
+            arg1: ilength,
+            arg2: 0x00,
+        };
+
+        var rsp = this.sendCommand(writeBlockCmd);
+        if (rsp.kind != 0xD0) {
+            throw "Xflash Error: 0x" + rsp.kind.toString(16).toUpperCase();
+        }
+
         offset += ilength;
     }
 }
@@ -288,13 +340,12 @@ try {
             var offset = parseInt(arguments[i++]);
             var length = parseInt(arguments[i++]);
             var erase = !!(parseInt(arguments[i++]) || false);
-            var verify = !!(parseInt(arguments[i++]) || false);
 
-            if (erase) {
-                xflash.sectorErase(offset, length)
+            if (length != -1) {
+                xflash.write_fixed(offset, length, erase);
+            } else {
+                xflash.write_stream(offset, erase);
             }
-
-            xflash.write(offset, length);
             break;
 
         default:

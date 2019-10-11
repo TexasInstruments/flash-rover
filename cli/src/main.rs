@@ -50,13 +50,13 @@ const SUPPORTED_XFLASH_HW: &'static [XflashInfo] = &[
         manufacturer_id: 0xC2,
         device_id: 0x15,
         size: 0x200000,
-        name: "Macronics MX25R1635F",
+        name: "Macronix MX25R1635F",
     },
     XflashInfo {
         manufacturer_id: 0xC2,
         device_id: 0x14,
         size: 0x100000,
-        name: "Macronics MX25R8035F",
+        name: "Macronix MX25R8035F",
     },
     XflashInfo {
         manufacturer_id: 0xEF,
@@ -167,15 +167,17 @@ impl Command {
             ("write", Some(write_matches)) => {
                 cmd.arg("write")
                     .arg(value_t!(write_matches, "offset", String).unwrap())
-                    .arg(value_t!(write_matches, "length", String).unwrap())
+                    .arg(if write_matches.is_present("length") {
+                        value_t!(write_matches, "length", String).unwrap()
+                    } else {
+                        // unbounded write is indicated by -1
+                        String::from("-1")
+                    })
                     .arg(if write_matches.is_present("erase") {
                         "1"
                     } else {
                         "0"
                     });
-                if write_matches.is_present("verify") {
-                    cmd.arg(value_t!(write_matches, "verify", String).unwrap());
-                }
                 Ok(Command {
                     kind: CommandKind::Write {
                         io: if let Some(input_path) = write_matches.value_of("input") {
@@ -280,7 +282,10 @@ impl Cli {
         let stdout = String::from_utf8_lossy(&output.stdout[..]);
         let mid_did: Vec<_> = stdout.trim().split(' ').collect();
         if mid_did.len() != 2 {
-            return Err(err_msg(format!("Got unexpected output during info command: {}", stdout.trim())));
+            return Err(err_msg(format!(
+                "Got unexpected output during info command: {}",
+                stdout.trim()
+            )));
         }
         let mid = mid_did[0]
             .parse::<u32>()
@@ -332,10 +337,8 @@ impl Cli {
             .stderr(process::Stdio::piped())
             .spawn()?;
 
-        {
-            let child_stdout = child.stdout.as_mut().unwrap();
-            io::copy(child_stdout, io_output)?;
-        }
+        // unwrap is OK since child is created with piped stdout, see above
+        io::copy(child.stdout.as_mut().unwrap(), io_output)?;
 
         let output = child.wait_with_output()?;
 
@@ -354,10 +357,8 @@ impl Cli {
             .stderr(process::Stdio::piped())
             .spawn()?;
 
-        {
-            let child_stdin = child.stdin.as_mut().unwrap();
-            io::copy(io_input, child_stdin)?;
-        }
+        // unwrap is OK since child is created with piped stdin, see above
+        io::copy(io_input, child.stdin.as_mut().unwrap())?;
 
         let output = child.wait_with_output()?;
 
@@ -468,12 +469,6 @@ fn main() {
                 .help("Erase sectors before writing to them")
                 .short("e")
                 .long("erase"))
-            .arg(Arg::with_name("verify")
-                .help("Verify written data")
-                .short("v")
-                .long("verify")
-                .value_name("MODE")
-                .possible_values(&["crc", "readback"]))
             .arg(Arg::with_name("offset")
                 .help("Offset of bytes into external flash device to start write")
                 .value_name("OFFSET")
