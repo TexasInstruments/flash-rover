@@ -56,6 +56,7 @@ function Xflash(device) {
 
     this.debug_session = this.debug_server.openSession(this.cfg.session)
     this.debug_session.target.connect();
+    this.debug_session.target.reset();
     this.debug_session.expression.evaluate("GEL_AdvancedReset(\"Board Reset (automatic connect/disconnect)\")");
 }
 
@@ -186,7 +187,7 @@ Xflash.prototype.read = function(offset, length) {
         // This is a sloppy implementation because the readData() API returns
         // a long[] array, while the write() API only accepts byte[] arrays. I
         // haven't found a trivial conversion between these two arrays without
-        // manually writing byte by byte.
+        // manually writing byte by byte. I am sorry.
         var data = this.debug_session.memory.readData(0, XFLASH_BUF, 8, ilength);
         for (var i = 0; i < ilength; i++) {
             System.out.write(data[i]);
@@ -201,21 +202,24 @@ Xflash.prototype.read = function(offset, length) {
 }
 
 Xflash.prototype.write_fixed = function(offset, length, erase) {
-    var buf = new Array(XFLASH_BUF_SIZE);
+    var is = System['in'];
+    var is_buf = java.lang.reflect.Array.newInstance(java.lang.Byte.TYPE, XFLASH_BUF_SIZE);
 
     if (erase) {
-        this.erase(offset, length);
+        this.sectorErase(offset, length);
     }
 
     while (length > 0) {
-        var ilength = java.lang.Math.min(length, buf.length());
+        var ilength = java.lang.Math.min(length, XFLASH_BUF_SIZE);
+        ilength = is.read(is_buf, 0, ilength);
 
         // This is a sloppy implementation because the writeData() API takes a
         // long[] array, while the read() API only accepts byte[] arrays. I
         // haven't found a trivial conversion between these two arrays without
-        // manually reading byte by byte.
+        // manually reading byte by byte. I am sorry.
+        var buf = new Array();
         for (var i = 0; i < ilength; i++) {
-            buf[i] = System['in'].read();
+            buf.push(is_buf[i]);
         }
 
         this.debug_session.memory.writeData(0, XFLASH_BUF, buf, 8);
@@ -238,8 +242,6 @@ Xflash.prototype.write_fixed = function(offset, length, erase) {
 }
 
 Xflash.prototype.write_stream = function(offset, erase) {
-    var buf = new Array(XFLASH_BUF_SIZE);
-
     var is = System['in'];
     var is_buf = java.lang.reflect.Array.newInstance(java.lang.Byte.TYPE, XFLASH_BUF_SIZE);
 
@@ -251,9 +253,10 @@ Xflash.prototype.write_stream = function(offset, erase) {
         // This is a sloppy implementation because the writeData() API takes a
         // long[] array, while the read() API only accepts byte[] arrays. I
         // haven't found a trivial conversion between these two arrays without
-        // manually reading byte by byte.
+        // manually reading byte by byte. I am sorry.
+        var buf = new Array();
         for (var i = 0; i < ilength; i++) {
-            buf[i] = is_buf[i];
+            buf.push(is_buf[i]);
         }
 
         if (erase) {
@@ -351,10 +354,13 @@ try {
         default:
             throw "Invalid command: " + command;
     }
-} finally {
+} catch (ex) {
     if (xflash !== undefined) {
         xflash.close();
     }
-}
+    System.err.write(ex);
+    java.lang.System.exit(1);
+} 
 
+xflash.close();
 java.lang.System.exit(0);

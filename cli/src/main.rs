@@ -308,6 +308,7 @@ impl Cli {
 
     fn mass_erase(cmd: &mut process::Command) -> Result<(), Error> {
         print!("Starting mass erase, this may take some time... ");
+        io::stdout().flush().unwrap();
         let output = cmd.output()?;
         if !output.status.success() {
             println!("");
