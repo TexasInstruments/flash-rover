@@ -15,14 +15,18 @@ CCS_CLI := ${CCS_ROOT}/eclipse/eclipse
 else ifneq ("$(wildcard ${CCS_ROOT}/eclipse/ccstudio)","")
 CCS_CLI := ${CCS_ROOT}/eclipse/ccstudio
 else
-$(error "Unable to find CCS executable")
+$(warning "Unable to find CCS executable")
 endif
+
+VERSION = 0.1.0
+
+TARGETS =x86_64-unknown-linux-gnu x86_64-apple-darwin x86_64-pc-windows-gnu
 
 CCS_WORKSPACE := fw/workspace
 PROJECTSPECS := $(shell ls fw/gcc/cc13x0-cc26x0/*.projectspec) \
                 $(shell ls fw/gcc/cc13x2-cc26x2/*.projectspec)
 
-OUTPUT_DIR := output/flash-rover
+OUTPUT_DIR := output
 
 .PHONY: help
 help:
@@ -79,8 +83,8 @@ fw-ccs-build:
 
 .PHONY: cli
 cli:
-	@echo "Build CLI project"
-	@cd cli && cargo build --release
+	@echo "Build CLI projects"
+	@cd cli && ./build.sh
 
 .PHONY: cli-clean
 cli-clean:
@@ -90,13 +94,20 @@ cli-clean:
 .PHONY: output
 output:
 	@echo "Build output folder"
-	@[ -f cli/target/release/flash-rover.exe ] \
-		&& cp -t ${OUTPUT_DIR} cli/target/release/flash-rover.exe \
-		|| cp -t ${OUTPUT_DIR} cli/target/release/flash-rover
-	@cp -r -t ${OUTPUT_DIR} cli/dss
-	@mkdir -p ${OUTPUT_DIR}/dss/fw
-	@cp -t ${OUTPUT_DIR}/dss/fw $(shell ls fw/workspace/*/Firmware/*.bin)
-	@tar -cf ${OUTPUT_DIR}.tar ${OUTPUT_DIR}
+
+	@for TARGET in ${TARGETS}; do \
+		mkdir -p ${OUTPUT_DIR}/$${TARGET}/flash-rover; \
+		[ -f cli/target/$${TARGET}/release/flash-rover.exe ] \
+			&& cp -t ${OUTPUT_DIR}/$${TARGET}/flash-rover cli/target/$${TARGET}/release/flash-rover.exe \
+			|| cp -t ${OUTPUT_DIR}/$${TARGET}/flash-rover cli/target/$${TARGET}/release/flash-rover; \
+		cp -r -t ${OUTPUT_DIR}/$${TARGET}/flash-rover cli/dss; \
+		mkdir -p ${OUTPUT_DIR}/$${TARGET}/flash-rover/dss/fw; \
+		cp -t ${OUTPUT_DIR}/$${TARGET}/flash-rover/dss/fw $(shell ls fw/workspace/*/Firmware/*.bin); \
+		cd ${OUTPUT_DIR}/$${TARGET}; \
+		tar -czf flash-rover-${VERSION}-$${TARGET}.tar.gz flash-rover; \
+		mv flash-rover-${VERSION}-$${TARGET}.tar.gz ..; \
+		cd ../..; \
+	done
 
 .PHONY: output-clean
 output-clean:
