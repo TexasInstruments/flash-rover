@@ -1,0 +1,18 @@
+version: '3.7'
+services:
+  develop:
+    image: artifactory.itg.ti.com/docker-epd-cmcu-local/rust:latest
+    # Comment back in to build a new image
+    build:
+      dockerfile: Dockerfile
+      context: .
+    working_dir: /project/
+    volumes:
+      - ./:/project/
+    hostname: flash-rover
+
+networks:
+  default:
+    external:
+      name: bridge
+
