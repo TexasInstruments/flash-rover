@@ -1,6 +1,10 @@
 
 # flash-rover
 
+<p align="center">
+    <img width="200" alt="flash-rover logo" src="icon.png">
+</p>
+
 *flash-rover* is a command line interface tool to read and write data on an
 external flash connected to a TI CC13xx/CC26xx device. *flash-rover* accepts
 reading and writing both streams of bytes or arbitrary files. The internal flash
