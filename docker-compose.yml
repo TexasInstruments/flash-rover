@@ -1,18 +1,16 @@
 version: '3.7'
 services:
-  develop:
-    image: artifactory.itg.ti.com/docker-epd-cmcu-local/rust:latest
-    # Comment back in to build a new image
+  x86_64-apple-darwin:
+    image: flash-rover/cross:x86_64-apple-darwin
     build:
+      context: ./ci/docker/x86_64-apple-darwin
       dockerfile: Dockerfile
-      context: .
-    working_dir: /project/
+    working_dir: /project
     volumes:
-      - ./:/project/
+      - ./cli:/project
     hostname: flash-rover
 
 networks:
   default:
     external:
       name: bridge
-
