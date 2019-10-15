@@ -51,6 +51,7 @@ ccs_build() {
 }
 
 main() {
+    cd "${ROOT_DIR}"
     ccs_import
     ccs_build
 }
