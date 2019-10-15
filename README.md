@@ -63,7 +63,8 @@ To build *flash-rover*:
 ```bash
 $ git clone https://github.com/ti-simplelink/flash-rover
 $ cd flash-rover
-$ CCS_ROOT=<path/to/ccs> make all
+$ CCS_ROOT=<path/to/ccs> ./ci/firmware.sh
+$ ./ci/install.sh
 $ ./output/flash-rover/flash-rover --version
 flash-rover 0.1.0
 ```
