@@ -66,7 +66,7 @@ $ cd flash-rover
 $ CCS_ROOT=<path/to/ccs> ./ci/firmware.sh
 $ ./ci/install.sh
 $ ./output/flash-rover/flash-rover --version
-flash-rover 0.1.0
+flash-rover 0.1.1
 ```
 
 The `CCS_ROOT` variable should point to your CCS installation folder, which
