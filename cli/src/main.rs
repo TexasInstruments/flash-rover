@@ -142,7 +142,9 @@ impl Command {
                         cmd: cmd,
                     })
                 } else {
-                    cmd.arg("sector-erase");
+                    cmd.arg("sector-erase")
+                        .arg(value_t!(erase_matches, "offset", String).unwrap())
+                        .arg(value_t!(erase_matches, "length", String).unwrap());
                     Ok(Command {
                         kind: CommandKind::SectorErase,
                         cmd: cmd,

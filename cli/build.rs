@@ -44,6 +44,6 @@ fn copy_dss_folder() {
 
 fn main() {
     if env::var("PROFILE").unwrap() == "debug" {
-       copy_dss_folder();
+        copy_dss_folder();
     }
 }
