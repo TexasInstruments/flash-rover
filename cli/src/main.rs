@@ -45,29 +45,29 @@ impl fmt::Display for XflashInfo {
     }
 }
 
-const SUPPORTED_XFLASH_HW: &'static [XflashInfo] = &[
+const SUPPORTED_XFLASH_HW: &[XflashInfo] = &[
     XflashInfo {
         manufacturer_id: 0xC2,
         device_id: 0x15,
-        size: 0x200000,
+        size: 0x0020_0000,
         name: "Macronix MX25R1635F",
     },
     XflashInfo {
         manufacturer_id: 0xC2,
         device_id: 0x14,
-        size: 0x100000,
+        size: 0x0010_0000,
         name: "Macronix MX25R8035F",
     },
     XflashInfo {
         manufacturer_id: 0xEF,
         device_id: 0x12,
-        size: 0x80000,
+        size: 0x0008_0000,
         name: "WinBond W25X40CL",
     },
     XflashInfo {
         manufacturer_id: 0xEF,
         device_id: 0x11,
-        size: 0x40000,
+        size: 0x0004_0000,
         name: "WinBond W25X20CL",
     },
 ];
@@ -103,8 +103,12 @@ struct Command {
 }
 
 impl Command {
-    fn from_matches<'a>(matches: &ArgMatches<'a>) -> Result<Self, Error> {
-        let ccs = value_t!(matches, "ccs", String)?;
+    fn new_cmd<'a>(matches: &ArgMatches<'a>) -> Result<process::Command, Error> {
+        let ccs = value_t!(matches, "ccs", String)
+            // CCS path may be set by environment variable which can contain
+            // unexpected leading/trailing whitespace. Make sure to trim value.
+            .map(|v| v.trim().to_owned())
+            .map_err(|_| err_msg("CCS installation path not specified. Either specify the CCS path explicitly with the --ccs <PATH> argument, or set the CCS_ROOT= environment variable."))?;
         let device = value_t!(matches, "device", String)?;
         let spi_pins = values_t!(matches, "spi-pins", String)?;
 
@@ -126,81 +130,102 @@ impl Command {
             .arg("conf")
             .args(&spi_pins[..]);
 
+        Ok(cmd)
+    }
+
+    fn from_matches<'a>(matches: &ArgMatches<'a>) -> Result<Self, Error> {
         match matches.subcommand() {
-            ("info", _) => {
-                cmd.arg("info");
-                Ok(Command {
-                    kind: CommandKind::Info,
-                    cmd: cmd,
-                })
-            }
-            ("erase", Some(erase_matches)) => {
-                if erase_matches.is_present("mass-erase") {
-                    cmd.arg("mass-erase");
-                    Ok(Command {
-                        kind: CommandKind::MassErase,
-                        cmd: cmd,
-                    })
-                } else {
-                    cmd.arg("sector-erase")
-                        .arg(value_t!(erase_matches, "offset", String).unwrap())
-                        .arg(value_t!(erase_matches, "length", String).unwrap());
-                    Ok(Command {
-                        kind: CommandKind::SectorErase,
-                        cmd: cmd,
-                    })
-                }
-            }
-            ("read", Some(read_matches)) => {
-                cmd.arg("read")
-                    .arg(value_t!(read_matches, "offset", String).unwrap())
-                    .arg(value_t!(read_matches, "length", String).unwrap());
-                Ok(Command {
-                    kind: CommandKind::Read {
-                        io: if let Some(output_path) = read_matches.value_of("output") {
-                            Box::new(File::create(output_path)?)
-                        } else {
-                            Box::new(io::stdout())
-                        },
-                    },
-                    cmd: cmd,
-                })
-            }
-            ("write", Some(write_matches)) => {
-                cmd.arg("write")
-                    .arg(value_t!(write_matches, "offset", String).unwrap())
-                    .arg(if write_matches.is_present("length") {
-                        value_t!(write_matches, "length", String).unwrap()
-                    } else {
-                        // unbounded write is indicated by -1
-                        String::from("-1")
-                    })
-                    .arg(if write_matches.is_present("erase") {
-                        "1"
-                    } else {
-                        "0"
-                    });
-                Ok(Command {
-                    kind: CommandKind::Write {
-                        io: if let Some(input_path) = write_matches.value_of("input") {
-                            Box::new(File::open(input_path)?)
-                        } else {
-                            Box::new(io::stdin())
-                        },
-                    },
-                    cmd: cmd,
-                })
-            }
+            ("info", _) => Command::info(matches),
+            ("erase", Some(matches)) => Command::erase(matches),
+            ("read", Some(matches)) => Command::read(matches),
+            ("write", Some(matches)) => Command::write(matches),
             // This is OK since subcommand is required
             (_, _) => unreachable!(),
         }
+    }
+
+    fn info<'a>(matches: &ArgMatches<'a>) -> Result<Self, Error> {
+        let mut cmd = Command::new_cmd(matches)?;
+        cmd.arg("info");
+
+        Ok(Command {
+            kind: CommandKind::Info,
+            cmd,
+        })
+    }
+
+    fn erase<'a>(matches: &ArgMatches<'a>) -> Result<Self, Error> {
+        let mut cmd = Command::new_cmd(matches)?;
+        if matches.is_present("mass-erase") {
+            cmd.arg("mass-erase");
+
+            Ok(Command {
+                kind: CommandKind::MassErase,
+                cmd,
+            })
+        } else {
+            let offset = value_t!(matches, "offset", String).unwrap();
+            let length = value_t!(matches, "length", String).unwrap();
+            cmd.arg("sector-erase").arg(offset).arg(length);
+
+            Ok(Command {
+                kind: CommandKind::SectorErase,
+                cmd,
+            })
+        }
+    }
+
+    fn read<'a>(matches: &ArgMatches<'a>) -> Result<Self, Error> {
+        let mut cmd = Command::new_cmd(matches)?;
+        let offset = value_t!(matches, "offset", String).unwrap();
+        let length = value_t!(matches, "length", String).unwrap();
+        cmd.arg("read").arg(offset).arg(length);
+
+        let io: Box<dyn Write> = if let Some(output_path) = matches.value_of("output") {
+            Box::new(File::create(output_path)?)
+        } else {
+            Box::new(io::stdout())
+        };
+
+        Ok(Command {
+            kind: CommandKind::Read { io },
+            cmd,
+        })
+    }
+
+    fn write<'a>(matches: &ArgMatches<'a>) -> Result<Self, Error> {
+        let mut cmd = Command::new_cmd(matches)?;
+        let offset = value_t!(matches, "offset", String).unwrap();
+        let length = if matches.is_present("length") {
+            value_t!(matches, "length", String).unwrap()
+        } else {
+            // unbounded write is indicated by -1
+            String::from("-1")
+        };
+        let erase = if matches.is_present("erase") {
+            "1"
+        } else {
+            "0"
+        };
+        cmd.arg("write").arg(offset).arg(length).arg(erase);
+
+        let io: Box<dyn Read> = if let Some(input_path) = matches.value_of("input") {
+            Box::new(File::open(input_path)?)
+        } else {
+            Box::new(io::stdin())
+        };
+
+        Ok(Command {
+            kind: CommandKind::Write { io },
+            cmd,
+        })
     }
 }
 
 fn exe_dir() -> io::Result<PathBuf> {
     Ok(env::current_exe()?
         .parent()
-        .ok_or(io::Error::from(io::ErrorKind::NotFound))?
+        .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))?
         .to_owned())
 }
 
@@ -313,7 +338,7 @@ impl Cli {
         io::stdout().flush().unwrap();
         let output = cmd.output()?;
         if !output.status.success() {
-            println!("");
+            println!();
             return Err(err_msg(
                 String::from_utf8_lossy(&output.stderr[..]).into_owned(),
             ));
@@ -492,8 +517,8 @@ fn main() {
         )
         .get_matches();
 
-    cli(&matches).unwrap_or_else(|err| {
-        eprintln!("Error: {}", err);
+    if let Err(err) = cli(&matches) {
+        eprintln!("error: {}", err);
         process::exit(1);
-    });
+    };
 }
