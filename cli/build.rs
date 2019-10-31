@@ -43,6 +43,10 @@ fn copy_dss_folder() {
 }
 
 fn main() {
+    if cfg!(target_os = "windows") {
+        println!(r"cargo:rustc-link-search=C:\Program Files\Java\jdk1.8.0_202\lib");
+    }
+
     if env::var("PROFILE").unwrap() == "debug" {
         copy_dss_folder();
     }

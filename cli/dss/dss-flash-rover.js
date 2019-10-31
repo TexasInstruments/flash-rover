@@ -47,7 +47,7 @@ function Xflash(device) {
     this.script = ScriptingEnvironment.instance();
 
     this.script.traceBegin(this.cfg.log, "DefaultStylesheet.xsl");
-    this.script.traceSetConsoleLevel(TraceLevel.OFF);
+    this.script.traceSetConsoleLevel(TraceLevel.ALL);
     this.script.traceSetFileLevel(TraceLevel.ALL);
     this.script.setScriptTimeout(this.cfg.timeout);
 
