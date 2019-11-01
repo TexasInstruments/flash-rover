@@ -21,7 +21,7 @@ use j4rs::InvocationArg;
 use j4rs::Jvm;
 use j4rs::JvmBuilder;
 
-use failure::{err_msg, Fail};
+use failure::Fail;
 use path_clean::PathClean;
 use path_slash::PathBufExt;
 use tempfile::TempPath;
@@ -225,12 +225,12 @@ impl Memory {
         &self,
         page: usize,
         address: u32,
-        values: Vec<i64>,
+        values: &[u8],
         type_size: usize,
     ) -> Result<()> {
         let values: Result<Vec<_>, _> = values
-            .into_iter()
-            .map(|v| InvocationArg::try_from(v).and_then(|v| v.into_primitive()))
+            .iter()
+            .map(|v| InvocationArg::try_from(*v as i64).and_then(|v| v.into_primitive()))
             .collect();
         let arr_values = self.jvm.create_java_array("long", &values?)?;
         self.jvm.invoke(
@@ -571,18 +571,18 @@ const SCRIPT_TIMEOUT: Duration = Duration::from_secs(15);
 const SESSION_PATTERN: &str = "Texas Instruments XDS110 USB Debug Probe/Cortex_M(3|4)_0";
 
 const SRAM_START: u32 = 0x2000_0000;
-const STACK_ADDR: u32 = SRAM_START + 0x00;
+const STACK_ADDR: u32 = SRAM_START;
 const RESET_ISR: u32 = SRAM_START + 0x04;
 
 const CONF_START: u32 = 0x2000_3000;
-const CONF_VALID: u32 = CONF_START + 0x00;
+const CONF_VALID: u32 = CONF_START;
 const CONF_SPI_MISO: u32 = CONF_START + 0x04;
 const CONF_SPI_MOSI: u32 = CONF_START + 0x08;
 const CONF_SPI_CLK: u32 = CONF_START + 0x0C;
 const CONF_SPI_CSN: u32 = CONF_START + 0x10;
 
 const DOORBELL_START: u32 = 0x2000_3100;
-const DOORBELL_CMD: u32 = DOORBELL_START + 0x00;
+const DOORBELL_CMD: u32 = DOORBELL_START;
 const DOORBELL_RSP: u32 = DOORBELL_START + 0x10;
 
 const XFLASH_BUF_START: u32 = 0x2000_4000;
@@ -628,9 +628,9 @@ impl FwRsp {
                 mid: *mid,
                 did: *did,
             },
-            _ => {
+            rsp => {
                 return Err(Error::Fw {
-                    inner: err_msg("Received invalid FW response"),
+                    inner: format_err!("Received invalid FW response: {:?}", rsp),
                 })
             }
         })
@@ -650,7 +650,7 @@ impl FlashRover {
         let ccxml = create_ccxml(&command.xds_id, &command.device_kind)?;
         let jvm = build_jvm(command.ccs_path.as_path())?;
 
-        let script = ScriptingEnvironment::new(jvm.clone())?;
+        let script = ScriptingEnvironment::new(jvm)?;
         script.trace_begin(LOG_FILENAME, LOG_STYLESHEET)?;
         script.trace_set_console_level(TraceLevel::Off)?;
         script.trace_set_file_level(TraceLevel::All)?;
@@ -680,7 +680,7 @@ impl FlashRover {
 
         self.inject()?;
 
-        Ok(match &self.command.subcommand {
+        match &self.command.subcommand {
             Info => self.info()?,
             SectorErase { offset, length } => self.sector_erase(*offset, *length)?,
             MassErase => self.mass_erase()?,
@@ -695,7 +695,9 @@ impl FlashRover {
                 length,
                 input,
             } => self.write(*erase, *offset, *length, input.borrow_mut().as_mut())?,
-        })
+        }
+
+        Ok(())
     }
 
     fn inject(&self) -> Result<()> {
@@ -736,7 +738,7 @@ impl FlashRover {
         memory.write_data(0, DOORBELL_CMD + 0x08, fw_cmd_bytes[2], 32)?;
         memory.write_data(0, DOORBELL_CMD + 0x04, fw_cmd_bytes[1], 32)?;
         // Kind must be written last to trigger the command
-        memory.write_data(0, DOORBELL_CMD + 0x00, fw_cmd_bytes[0], 32)?;
+        memory.write_data(0, DOORBELL_CMD, fw_cmd_bytes[0], 32)?;
 
         const SLEEP_TIME: Duration = Duration::from_millis(100);
 
@@ -749,7 +751,7 @@ impl FlashRover {
         }
 
         let fw_rsp_bytes: [u32; 4] = [
-            memory.read_data(0, DOORBELL_RSP + 0x00, 32, false)?,
+            memory.read_data(0, DOORBELL_RSP, 32, false)?,
             memory.read_data(0, DOORBELL_RSP + 0x04, 32, false)?,
             memory.read_data(0, DOORBELL_RSP + 0x08, 32, false)?,
             memory.read_data(0, DOORBELL_RSP + 0x0C, 32, false)?,
@@ -791,7 +793,7 @@ impl FlashRover {
             other_rsp => {
                 return Err(Error::Fw {
                     inner: format_err!(
-                        "Received unexpected response from FW during info command: {:?}",
+                        "Received unexpected response from FW during sector-erase command: {:?}",
                         other_rsp
                     ),
                 })
@@ -813,7 +815,7 @@ impl FlashRover {
                 println!("Error.");
                 return Err(Error::Fw {
                     inner: format_err!(
-                        "Received unexpected response from FW during info command: {:?}",
+                        "Received unexpected response from FW during mass-erase command: {:?}",
                         other_rsp
                     ),
                 });
@@ -833,14 +835,14 @@ impl FlashRover {
 
             let fw_cmd = FwCmd::ReadBlock {
                 offset: offset_rest,
-                length: length_rest,
+                length: ilength,
             };
             match self.send_fw_cmd(fw_cmd)? {
                 FwRsp::Ok => { /* successful, do nothing */ }
                 other_rsp => {
                     return Err(Error::Fw {
                         inner: format_err!(
-                            "Received unexpected response from FW during info command: {:?}",
+                            "Received unexpected response from FW during read command: {:?}",
                             other_rsp
                         ),
                     })
@@ -867,8 +869,20 @@ impl FlashRover {
         let memory = &self.debug_session.memory;
 
         let vec = if let Some(length) = length {
-            let mut vec = Vec::with_capacity(length as usize);
-            input.take(length as u64).read(&mut vec)?;
+            let length = length as usize;
+            let mut vec = Vec::with_capacity(length);
+            let read_bytes = input.take(length as u64).read(&mut vec)?;
+            if read_bytes != length {
+                return Err(Error::Io { 
+                    inner: io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        format!(
+                            "Received too few bytes from input, expected {}, got {}",
+                            length, read_bytes
+                        )
+                    ) 
+                });
+            }
             vec
         } else {
             let mut vec = Vec::new();
@@ -885,10 +899,9 @@ impl FlashRover {
         }
 
         for chunk in vec.chunks(XFLASH_BUF_SIZE as usize) {
-            let buf: Vec<i64> = chunk.iter().map(|i| *i as _).collect();
-            let ilength = buf.len() as u32;
+            let ilength = chunk.len() as u32;
 
-            memory.write_datas(0, XFLASH_BUF_START, buf, 8)?;
+            memory.write_datas(0, XFLASH_BUF_START, chunk, 8)?;
 
             let fw_cmd = FwCmd::WriteBlock {
                 offset: offset_rest,
@@ -899,7 +912,7 @@ impl FlashRover {
                 other_rsp => {
                     return Err(Error::Fw {
                         inner: format_err!(
-                            "Received unexpected response from FW during info command: {:?}",
+                            "Received unexpected response from FW during write command: {:?}",
                             other_rsp
                         ),
                     })

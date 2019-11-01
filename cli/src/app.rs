@@ -155,7 +155,7 @@ fn spi_pins_validate(dios: String) -> Result<(), String> {
 }
 
 fn is_zero_or_positive(val: String) -> Result<(), String> {
-    if !val.parse::<u32>().is_ok() {
+    if val.parse::<u32>().is_err() {
         return Err(String::from("Value must be a zero or positive integer"));
     }
 
