@@ -51,6 +51,63 @@ Note that other external flash hardware which are not listed above, but are
 functionally compatible, will most likely work with *flash-rover*.
 
 
+## Usage
+
+It is assumed *flash-rover* is configured in your `PATH`.
+
+The CCS path must point to the CCS installation folder. Note that this folder
+should contain the `ccs_base/` subfolder.
+
+Reading the external flash device information of a CC13x2/CC26x2 LaunchPad:
+
+```bash
+$ flash-rover --ccs /path/to/ccs/install/folder \
+    --device cc13x2_cc26x2 \
+    --xds L4100009 \
+    info
+Macronix MX25R8035F (MID: 0xC2, DID: 0x14, size: 1024.00 KiB)
+```
+
+Read the first 10 bytes (offset 0, length 10) of the external flash on a
+CC2640R2 LaunchPad and store it in a new file called `output.bin`:
+
+```bash
+# You can either stream the output into a file
+$ flash-rover --ccs /path/to/ccs/install/folder \
+    --device cc26x0r2 \
+    --xds L50012SB \
+    read 0 10 > output.bin 
+# or explicitly specify the output file 
+$ flash-rover --ccs /path/to/ccs/install/folder \
+    --device cc26x0r2 \
+    --xds L50012SB \
+    read 0 10 --output output.bin
+```
+
+Write an entire input file called `input.bin` to offset 100 of the external
+flash on a CC1310 LaunchPad, and erase the sectors before writing. Read the
+memory range before and after (printout to stdout) to verify the contents have
+changed:
+
+```bash
+$ echo "Powered by flash-rover!" > input.bin
+$ flash-rover --ccs /path/to/ccs/install/folder \
+    --device cc13x0 \
+    --xds L200005Z \
+    read 100 $(wc -c < input.bin)
+
+$ flash-rover --ccs /path/to/ccs/install/folder \
+    --device cc13x0 \
+    --xds L200005Z \
+    write 100 --erase < input.bin 
+$ flash-rover --ccs /path/to/ccs/install/folder \
+    --device cc13x0 \
+    --xds L200005Z \
+    read 100 $(wc -c < input.bin)
+Powered by flash-rover!
+```
+
+
 ## Building
 
 The CLI portion of *flash-rover* is written in Rust, the JTAG interaction is
