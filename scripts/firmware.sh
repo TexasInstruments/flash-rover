@@ -3,8 +3,9 @@
 set -ex
 
 ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
-FW_DIR=fw
+FW_DIR=src/fw
 CCS_WORKSPACE=${FW_DIR}/workspace
+ASSETS_DIR=${ROOT_DIR}/src/assets/fw
 
 CCS_ROOT=${CCS_ROOT:=/opt/ti/ccs}
 
@@ -50,10 +51,17 @@ ccs_build() {
         -ccs.buildType full
 }
 
+firmware_copy() {
+    echo "Copy compiled firmware to assets folder"
+    mkdir -p "${ASSETS_DIR}"
+    cp $(ls "${CCS_WORKSPACE}"/flash_rover_fw_cc*_gcc/Firmware/*.bin) "${ASSETS_DIR}"
+}
+
 main() {
     cd "${ROOT_DIR}"
     ccs_import
     ccs_build
+    firmware_copy
 }
 
 main
