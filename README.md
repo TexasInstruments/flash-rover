@@ -35,6 +35,7 @@ The following TI devices are supported:
     * [CC1352P]
     * [CC2642R]
     * [CC2652R]
+    * [CC2652RB]
 
 The following hardware requirements for both TI development boards and custom
 boards are:
@@ -110,26 +111,27 @@ Powered by flash-rover!
 
 ## Building
 
-The CLI portion of *flash-rover* is written in Rust, the JTAG interaction is
-written in DSS, and the device firmware is written in C++. Building the CLI
-requires in general the latest stable release of the Rust compiler. Building the
-device firmware requires CCS version 9.0 or later.
+The CLI is written in Rust and the device firmware is written in C++. Building
+the CLI requires in general the latest stable release of the Rust compiler. See
+[rustup] on how to install Rust. There already exists pre-compiled binaries of
+the device firmware under `src/assets/fw`, however, building the device firmware
+requires CCS version 9.0 or later.
 
-To build *flash-rover*:
+To build *flash-rover* from source:
 
 ```bash
 $ git clone https://github.com/ti-simplelink/flash-rover
 $ cd flash-rover
-$ CCS_ROOT=<path/to/ccs> ./ci/firmware.sh
-$ ./ci/install.sh
-$ ./output/flash-rover/flash-rover --version
-flash-rover 0.1.1
+$ cargo build --release
+$ ./target/release/flash-rover --version
+flash-rover 0.2.0
 ```
 
 The `CCS_ROOT` variable should point to your CCS installation folder, which
 should contain the sub-folder `ccs_base/`.
 
 
+[rustup]:    https://rustup.rs/
 [CCS]:       http://www.ti.com/tool/CCSTUDIO
 [CC1310]:    http://www.ti.com/product/CC1310
 [CC1350]:    http://www.ti.com/product/CC1350
@@ -141,3 +143,4 @@ should contain the sub-folder `ccs_base/`.
 [CC1352P]:   http://www.ti.com/product/CC1352P
 [CC2642R]:   http://www.ti.com/product/CC2642R
 [CC2652R]:   http://www.ti.com/product/CC2652R
+[CC2652RB]:  http://www.ti.com/product/CC2652RB

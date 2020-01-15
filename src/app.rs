@@ -13,7 +13,7 @@ pub fn app() -> App<'static, 'static> {
         .max_term_width(100)
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .arg(Arg::with_name("ccs")
-            .help("Path to where CCS installed")
+            .help("Path to where CCS installed, which must contain the 'ccs_base/' folder")
             .short("c")
             .long("ccs")
             .value_name("PATH")
