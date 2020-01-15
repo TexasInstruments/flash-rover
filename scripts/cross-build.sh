@@ -3,8 +3,6 @@
 set -ex
 
 ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
-CLI_DIR=${ROOT_DIR}/cli
-FW_DIR=${ROOT_DIR}/fw
 OUTPUT_DIR=${ROOT_DIR}/output
 
 VERSION=$1
@@ -21,7 +19,7 @@ mk_tarball() {
     local tarball=${name}.tar.gz
     local target_dir=${OUTPUT_DIR}/${name}
     local stage_dir=${target_dir}/flash-rover
-    local cargo_out_dir=${CLI_DIR}/target/${target}/release
+    local cargo_out_dir=${ROOT_DIR}/target/${target}/release
 
     rm -f "${tarball}" 2> /dev/null
     rm -rf "${target_dir}" 2> /dev/null
@@ -33,11 +31,6 @@ mk_tarball() {
         cp -t "${stage_dir}" "${cargo_out_dir}/flash-rover"
     fi
 
-    cp -r -t "${stage_dir}" "${CLI_DIR}/dss"
-
-    mkdir -p "${stage_dir}/dss/fw"
-    cp -t "${stage_dir}/dss/fw" $(ls "${FW_DIR}"/workspace/*/Firmware/*.bin)
-
     (cd "${target_dir}" && \
         tar -czf "${tarball}" flash-rover && \
         mv "${tarball}" "${OUTPUT_DIR}/${tarball}")
@@ -47,7 +40,7 @@ cross_build() {
     local target=$1
 
     echo "Building ${target}"
-    (cd "${CLI_DIR}" && \
+    (cd "${ROOT_DIR}" && \
         "${CROSS}" build --release --target=${target})
 
     mk_tarball ${target}

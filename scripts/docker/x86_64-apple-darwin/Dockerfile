@@ -4,12 +4,13 @@ FROM ubuntu:bionic
 ENV LC_ALL=C.UTF-8 \
     TERM=xterm-256color
 
-# Use root user in order to perform modifications to the image
-USER root
-
 # Install dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+    apt-get -y --no-install-recommends install apt-file && \
+    apt-file update
+
+RUN apt-get install -y --no-install-recommends \
+        software-properties-common \
         ca-certificates \
         wget \
         curl \
@@ -20,13 +21,14 @@ RUN apt-get update && \
         python \
         libssl-dev \
         lzma-dev \
-        libxml2-dev && \
-    apt-get clean
+        libxml2-dev
 
-# Setup developer user
-RUN useradd -ms /bin/bash developer
-USER developer
-WORKDIR /home/developer
+# Install Java
+RUN add-apt-repository ppa:openjdk-r/ppa && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        openjdk-11-jdk \
+        ca-certificates-java
 
 # Setup macOS cross-compile environment
 COPY osxcross_setup.sh .
@@ -35,4 +37,7 @@ RUN ./osxcross_setup.sh && \
 
 # Install rust
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --target x86_64-apple-darwin --profile minimal
-ENV PATH="/home/developer/.cargo/bin:${PATH}"
+
+# Setup path
+ENV PATH="/root/.cargo/bin:/osxcross/bin:$PATH" \
+    JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64

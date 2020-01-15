@@ -15,29 +15,79 @@ pub struct XflashInfo {
 }
 
 const SUPPORTED_XFLASH_HW: &[XflashInfo] = &[
+    // Macronix
+    XflashInfo {
+        manufacturer_id: 0xC2,
+        device_id: 0x17,
+        size: 0x0400_0000,
+        name: "Macronix MX25R6435F",
+    },
+    XflashInfo {
+        manufacturer_id: 0xC2,
+        device_id: 0x16,
+        size: 0x0200_0000,
+        name: "Macronix MX25R3235F",
+    },
     XflashInfo {
         manufacturer_id: 0xC2,
         device_id: 0x15,
-        size: 0x0020_0000,
+        size: 0x0100_0000,
         name: "Macronix MX25R1635F",
     },
     XflashInfo {
         manufacturer_id: 0xC2,
         device_id: 0x14,
-        size: 0x0010_0000,
+        size: 0x0080_0000,
         name: "Macronix MX25R8035F",
     },
     XflashInfo {
+        manufacturer_id: 0xC2,
+        device_id: 0x13,
+        size: 0x0040_0000,
+        name: "Macronix MX25R4035F",
+    },
+    XflashInfo {
+        manufacturer_id: 0xC2,
+        device_id: 0x12,
+        size: 0x0020_0000,
+        name: "Macronix MX25R2035F",
+    },
+    XflashInfo {
+        manufacturer_id: 0xC2,
+        device_id: 0x11,
+        size: 0x0010_0000,
+        name: "Macronix MX25R1035F",
+    },
+    XflashInfo {
+        manufacturer_id: 0xC2,
+        device_id: 0x10,
+        size: 0x0008_0000,
+        name: "Macronix MX25R512F",
+    },
+    // WinBond
+    XflashInfo {
         manufacturer_id: 0xEF,
         device_id: 0x12,
-        size: 0x0008_0000,
+        size: 0x0040_0000,
         name: "WinBond W25X40CL",
     },
     XflashInfo {
         manufacturer_id: 0xEF,
         device_id: 0x11,
-        size: 0x0004_0000,
+        size: 0x0020_0000,
         name: "WinBond W25X20CL",
+    },
+    XflashInfo {
+        manufacturer_id: 0xEF,
+        device_id: 0x10,
+        size: 0x0010_0000,
+        name: "WinBond W25X10CL",
+    },
+    XflashInfo {
+        manufacturer_id: 0xEF,
+        device_id: 0x05,
+        size: 0x0008_0000,
+        name: "WinBond W25X05CL",
     },
 ];
 
