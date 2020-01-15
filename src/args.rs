@@ -136,7 +136,13 @@ impl Args {
             .context(MissingArgument { arg: ARG })?;
         let path = Path::new(&ccs).to_path_buf();
         ensure!(path.exists(), InvalidPath { path });
-        ensure!(path.join("ccs_base").exists(), InvalidArgument{ arg: ARG, reason: "CCS path does not contain the 'ccs_base/' subfolder" });
+        ensure!(
+            path.join("ccs_base").exists(),
+            InvalidArgument {
+                arg: ARG,
+                reason: "CCS path does not contain the 'ccs_base/' subfolder"
+            }
+        );
         Ok(path)
     }
 

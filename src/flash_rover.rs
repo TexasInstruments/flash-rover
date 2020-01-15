@@ -101,9 +101,7 @@ fn create_firmware(device: &Device) -> Result<TempPath> {
         .suffix(".bin")
         .tempfile()
         .context(CreateFirmwareError {})?;
-    firmware
-        .write_all(&asset)
-        .context(CreateFirmwareError {})?;
+    firmware.write_all(&asset).context(CreateFirmwareError {})?;
     let (file, path) = firmware.into_parts();
     drop(file);
 
@@ -200,7 +198,7 @@ impl FlashRover {
             .expression
             .evaluate("GEL_AdvancedReset(\"Board Reset (automatic connect/disconnect)\")")
             .context(DssError {})?;
-        
+
         let ccxml = Some(ccxml);
 
         Ok(Self {
@@ -246,7 +244,7 @@ impl FlashRover {
             .load_raw(0, SRAM_START, fw.to_str().unwrap(), 32, false)
             .context(DssError {})?;
 
-        fw.close().context(IoError{})?;
+        fw.close().context(IoError {})?;
 
         if let Some(spi_pins) = self.command.spi_pins.as_ref() {
             memory
