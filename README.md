@@ -9,11 +9,20 @@
 external flash connected to a TI CC13xx/CC26xx device. *flash-rover* accepts
 reading and writing both streams of bytes or arbitrary files. The internal flash
 on the TI device is also left untouched while *flash-rover* is accessing the
-external flash. *flash-rover* supports Windows, macOS and Linux, with binary
-downloads available for [every
+external flash, meaning no need to manually flash the TI device with some
+firmware. *flash-rover* supports Windows, Linux and macOS, with binary downloads
+available for [every
 release](https://github.com/ti-simplelink/flash-rover/releases).
 
 Released under BSD-3-Clause license.
+
+**Disclaimer**: *flash-rover* does not generate the necessary OAD metadata
+needed to write OAD images to the external flash, even though a common use of
+external flash on SimpleLink devices is OAD. OAD requires specific metadata and
+image sectors to be placed in external flash. However, since *flash-rover* is a
+generic tool, it does not handle creation of OAD image metadata. This must be
+done by the user and some steps may be manual. See the OAD chapter of your Stack
+User's Guide for more information.
 
 
 ## Prerequisites
@@ -40,13 +49,11 @@ The following TI devices are supported:
 The following hardware requirements for both TI development boards and custom
 boards are:
 * A 2-pin JTAG connection via a XDS110 debugger to the TI device.
-* The external flash is connected to the TI device through SPI.
+* The external flash is connected to the TI device via SPI.
 
 Currently known supported external flash hardware are:
-* Macronix MX25R1635F
-* Macronix MX25R8035F
-* WinBond W25X40CL
-* WinBond W25X20CL
+* Macronix MX25R
+* WinBond W25X 
 
 Note that other external flash hardware which are not listed above, but are
 functionally compatible, will most likely work with *flash-rover*.
@@ -54,10 +61,25 @@ functionally compatible, will most likely work with *flash-rover*.
 
 ## Usage
 
-It is assumed *flash-rover* is configured in your `PATH`.
+Download the correct zip folder for your operating system from the [Releases
+page](https://github.com/ti-simplelink/flash-rover/releases) and extract it. Add
+the path to the executable to the environment `PATH` variable, or `cd` into the
+directory of the executable.
+
+Refer to the help menu of the executable for documentation on the CLI and the
+different subcommands:
+
+```bash
+$ flash-rover help
+$ flash-rover help write
+$ flash-rover write --help
+```
 
 The CCS path must point to the CCS installation folder. Note that this folder
 should contain the `ccs_base/` subfolder.
+
+
+### Examples
 
 Reading the external flash device information of a CC13x2/CC26x2 LaunchPad:
 
@@ -66,7 +88,7 @@ $ flash-rover --ccs /path/to/ccs/install/folder \
     --device cc13x2_cc26x2 \
     --xds L4100009 \
     info
-Macronix MX25R8035F (MID: 0xC2, DID: 0x14, size: 1024.00 KiB)
+Macronix MX25R8035F (MID: 0xC2, DID: 0x14, size: 8.00 MiB)
 ```
 
 Read the first 10 bytes (offset 0, length 10) of the external flash on a
@@ -109,7 +131,23 @@ Powered by flash-rover!
 ```
 
 
+## How it works
+
+*flash-rover* connects to the TI device through the [Debug Server Script
+(DSS)][DSS] environment, available through CCS. When connected to the TI device,
+*flash-rover* hijacks the CPU by copying over the entire firmware into RAM,
+halts the CPU, and resets the execution context of the CPU into the firmware in
+RAM. Now, *flash-rover* communicates with the firmware through JTAG via some
+dedicated memory address in RAM, being able to send various commands and read
+the corresponding response. The firmware is responsible for communicating with
+the external flash via SPI.
+
+
 ## Building
+
+It is recommended for customers to download the pre-compiled executable from the
+[Releases page](https://github.com/ti-simplelink/flash-rover/releases) rather
+than building from source.
 
 The CLI is written in Rust and the device firmware is written in C++. Building
 the CLI requires in general the latest stable release of the Rust compiler. See
@@ -127,11 +165,9 @@ $ ./target/release/flash-rover --version
 flash-rover 0.2.0
 ```
 
-The `CCS_ROOT` variable should point to your CCS installation folder, which
-should contain the sub-folder `ccs_base/`.
-
 
 [rustup]:    https://rustup.rs/
+[DSS]:       http://dev.ti.com/tirex/explore/node?node=AO6UKsAhivhxn6EDOzuszQ__FUz-xrs__LATEST
 [CCS]:       http://www.ti.com/tool/CCSTUDIO
 [CC1310]:    http://www.ti.com/product/CC1310
 [CC1350]:    http://www.ti.com/product/CC1350
