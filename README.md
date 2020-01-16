@@ -133,7 +133,7 @@ Powered by flash-rover!
 
 ## How it works
 
-*flash-rover* connects to the TI device through the [Debug Server Script
+*flash-rover* connects to the TI device through the [Debug Server Scripting
 (DSS)][DSS] environment, available through CCS. When connected to the TI device,
 *flash-rover* hijacks the CPU by copying over the entire firmware into RAM,
 halts the CPU, and resets the execution context of the CPU into the firmware in
