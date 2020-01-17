@@ -603,7 +603,7 @@ pub fn build_jvm(ccs_path: &Path) -> Result<Rc<Jvm>> {
         "ccs_base/jre",
         "ccs_base/eclipse/jre",
     ]
-    .into_iter()
+    .iter()
     .map(|p| ccs_path.join(PathBuf::from_slash(p)).clean())
     .find(|p| p.exists())
     .context(JrePathError)?;

@@ -67,7 +67,7 @@ const DOORBELL_RSP: u32 = DOORBELL_START + 0x10;
 const XFLASH_BUF_START: u32 = 0x2000_4000;
 const XFLASH_BUF_SIZE: u32 = 0x1000;
 
-fn create_ccxml(xds: &str, device: &Device) -> Result<TempPath> {
+fn create_ccxml(xds: &str, device: Device) -> Result<TempPath> {
     let asset = assets::get_ccxml_template(device)
         .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
         .context(CreateCcxmlError {})?;
@@ -91,7 +91,7 @@ fn create_ccxml(xds: &str, device: &Device) -> Result<TempPath> {
     Ok(path)
 }
 
-fn create_firmware(device: &Device) -> Result<TempPath> {
+fn create_firmware(device: Device) -> Result<TempPath> {
     let asset = assets::get_firmware(device)
         .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
         .context(CreateFirmwareError {})?;
@@ -167,7 +167,7 @@ pub struct FlashRover {
 
 impl FlashRover {
     pub fn new(command: args::Command) -> Result<Self> {
-        let ccxml = create_ccxml(&command.xds_id, &command.device_kind)?;
+        let ccxml = create_ccxml(&command.xds_id, command.device_kind)?;
         let jvm = dss::build_jvm(command.ccs_path.as_path()).context(DssError {})?;
 
         let script = dss::ScriptingEnvironment::new(jvm).context(DssError {})?;
@@ -238,7 +238,7 @@ impl FlashRover {
     fn inject(&self) -> Result<()> {
         let memory = &self.debug_session.memory;
 
-        let fw = create_firmware(&self.command.device_kind)?;
+        let fw = create_firmware(self.command.device_kind)?;
 
         memory
             .load_raw(0, SRAM_START, fw.to_str().unwrap(), 32, false)

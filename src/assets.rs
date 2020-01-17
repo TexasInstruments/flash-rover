@@ -13,7 +13,7 @@ use crate::types::Device;
 #[folder = "src/assets"]
 struct Asset;
 
-pub fn get_ccxml_template(device: &Device) -> Option<Cow<'static, [u8]>> {
+pub fn get_ccxml_template(device: Device) -> Option<Cow<'static, [u8]>> {
     const PATH: &str = "ccxml/";
     let file = match device {
         Device::CC13x0 => "template_cc13x0.ccxml",
@@ -24,7 +24,7 @@ pub fn get_ccxml_template(device: &Device) -> Option<Cow<'static, [u8]>> {
     Asset::get(format!("{}{}", PATH, file).as_str())
 }
 
-pub fn get_firmware(device: &Device) -> Option<Cow<'static, [u8]>> {
+pub fn get_firmware(device: Device) -> Option<Cow<'static, [u8]>> {
     const PATH: &str = "fw/";
     let file = match device {
         Device::CC13x0 => "cc13x0.bin",
