@@ -13,7 +13,7 @@ use std::time::Duration;
 use j4rs::{ClasspathEntry, Instance, InvocationArg, Jvm, JvmBuilder};
 use path_clean::PathClean;
 use path_slash::PathBufExt;
-use snafu::{Backtrace, ResultExt, Snafu};
+use snafu::{Backtrace, OptionExt, ResultExt, Snafu};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
@@ -22,6 +22,8 @@ pub enum Error {
         backtrace: Backtrace,
         source: j4rs::errors::J4RsError,
     },
+    #[snafu(display("Unable to determine the JRE path from the CCS directory"))]
+    JrePathError { backtrace: Backtrace },
     #[snafu(display("An error occured modifying PATH env: {}", source))]
     PathEnvError {
         backtrace: Backtrace,
@@ -595,16 +597,28 @@ impl ScriptingEnvironment {
 }
 
 pub fn build_jvm(ccs_path: &Path) -> Result<Rc<Jvm>> {
-    let ccs_java_path = ccs_path
-        .join(PathBuf::from_slash("eclipse/jre/bin"))
-        .clean();
+    let java_home = [
+        "eclipse/jre",
+        "eclipse/Ccstudio.app/jre/Contents/Home",
+        "ccs_base/jre",
+        "ccs_base/eclipse/jre",
+    ]
+    .into_iter()
+    .map(|p| ccs_path.join(PathBuf::from_slash(p)).clean())
+    .find(|p| p.exists())
+    .context(JrePathError)?;
 
-    let dss_path = ccs_path.join("ccs_base/DebugServer/packages/ti/dss/java/dss.jar");
+    let ccs_jre_path = java_home.join("bin");
+    let dss_path = ccs_path
+        .join("ccs_base/DebugServer/packages/ti/dss/java/dss.jar")
+        .clean();
 
     let path = env::var_os("PATH").unwrap_or_default();
     let path_iter = env::split_paths(&path);
-    let paths = iter::once(ccs_java_path).chain(path_iter);
+    let paths = iter::once(ccs_jre_path).chain(path_iter);
+
     env::set_var("PATH", &env::join_paths(paths).context(PathEnvError {})?);
+    env::set_var("JAVA_HOME", java_home.to_str().unwrap());
 
     Ok(Rc::new(
         JvmBuilder::new()

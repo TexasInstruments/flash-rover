@@ -107,26 +107,26 @@ $ flash-rover --ccs /path/to/ccs/install/folder \
     read 0 10 --output output.bin
 ```
 
-Write an entire input file called `input.bin` to offset 100 of the external
+Write an entire input file called `input.txt` to offset 100 of the external
 flash on a CC1310 LaunchPad, and erase the sectors before writing. Read the
 memory range before and after (printout to stdout) to verify the contents have
 changed:
 
 ```bash
-$ echo "Powered by flash-rover!" > input.bin
+$ echo "Powered by flash-rover!" > input.txt
 $ flash-rover --ccs /path/to/ccs/install/folder \
     --device cc13x0 \
     --xds L200005Z \
-    read 100 $(wc -c < input.bin)
+    read 100 $(wc -c < input.txt)
 
 $ flash-rover --ccs /path/to/ccs/install/folder \
     --device cc13x0 \
     --xds L200005Z \
-    write 100 --erase < input.bin 
+    write 100 --erase < input.txt
 $ flash-rover --ccs /path/to/ccs/install/folder \
     --device cc13x0 \
     --xds L200005Z \
-    read 100 $(wc -c < input.bin)
+    read 100 $(wc -c < input.txt)
 Powered by flash-rover!
 ```
 
