@@ -44,7 +44,6 @@ The following TI devices are supported:
     * [CC1352P]
     * [CC2642R]
     * [CC2652R]
-    * [CC2652RB]
 
 The following hardware requirements for both TI development boards and custom
 boards are:
@@ -179,4 +178,3 @@ flash-rover 0.2.0
 [CC1352P]:   http://www.ti.com/product/CC1352P
 [CC2642R]:   http://www.ti.com/product/CC2642R
 [CC2652R]:   http://www.ti.com/product/CC2652R
-[CC2652RB]:  http://www.ti.com/product/CC2652RB
