@@ -5,14 +5,16 @@
 
 use std::cell::RefCell;
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::str;
 
 use snafu::{Backtrace, OptionExt, ResultExt, Snafu};
 
+use xflash::command::{Command, Subcommand};
+use xflash::types::{Device, SpiPins};
+
 use crate::app;
-use crate::types::{Device, SpiPins};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
@@ -88,34 +90,6 @@ impl ArgMatches {
     }
 }
 
-pub enum Subcommand {
-    Info,
-    SectorErase {
-        offset: u32,
-        length: u32,
-    },
-    MassErase,
-    Read {
-        offset: u32,
-        length: u32,
-        output: RefCell<Box<dyn Write>>,
-    },
-    Write {
-        erase: bool,
-        offset: u32,
-        length: Option<u32>,
-        input: RefCell<Box<dyn Read>>,
-    },
-}
-
-pub struct Command {
-    pub ccs_path: PathBuf,
-    pub xds_id: String,
-    pub device_kind: Device,
-    pub spi_pins: Option<SpiPins>,
-    pub subcommand: Subcommand,
-}
-
 pub struct Args {
     matches: ArgMatches,
 }
@@ -128,25 +102,7 @@ impl Args {
         Ok(Self { matches })
     }
 
-    pub fn ccs_path(&self) -> Result<PathBuf> {
-        const ARG: &str = "ccs";
-        let ccs = self
-            .matches
-            .value_of_lossy(ARG)
-            .context(MissingArgument { arg: ARG })?;
-        let path = Path::new(&ccs).to_path_buf();
-        ensure!(path.exists(), InvalidPath { path });
-        ensure!(
-            path.join("ccs_base").exists(),
-            InvalidArgument {
-                arg: ARG,
-                reason: "CCS path does not contain the 'ccs_base/' subfolder"
-            }
-        );
-        Ok(path)
-    }
-
-    pub fn xds_id(&self) -> Result<String> {
+    fn xds_id(&self) -> Result<String> {
         const ARG: &str = "xds";
         let arg = self
             .matches
@@ -155,7 +111,7 @@ impl Args {
         Ok(arg)
     }
 
-    pub fn device_kind(&self) -> Result<Device> {
+    fn device_kind(&self) -> Result<Device> {
         const ARG: &str = "device";
         let arg = self
             .matches
@@ -164,13 +120,13 @@ impl Args {
         Ok(arg)
     }
 
-    pub fn spi_pins(&self) -> Result<Option<SpiPins>> {
+    fn spi_pins(&self) -> Result<Option<SpiPins>> {
         const ARG: &str = "spi-pins";
         let arg = self.matches.parse_of_lossy(ARG)?;
         Ok(arg)
     }
 
-    pub fn subcommand(&self) -> Result<Subcommand> {
+    fn subcommand(&self) -> Result<Subcommand> {
         Ok(match self.matches.subcommand() {
             ("info", _) => Subcommand::Info,
             ("erase", Some(matches)) => {
@@ -218,9 +174,9 @@ impl Args {
         })
     }
 
-    pub fn command(&self) -> Result<Command, Error> {
+    pub fn command(&self, ccs_path: &Path) -> Result<Command, Error> {
         Ok(Command {
-            ccs_path: self.ccs_path()?,
+            ccs_path: ccs_path.into(),
             xds_id: self.xds_id()?,
             device_kind: self.device_kind()?,
             spi_pins: self.spi_pins()?,

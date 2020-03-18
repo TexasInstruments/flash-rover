@@ -13,9 +13,34 @@ DOCKER_COMPOSE=${DOCKER_COMPOSE:=docker-compose}
 http_proxy=${http_proxy:=}
 https_proxy=${https_proxy:=}
 
+x86_64-unknown-linux-gnu() {
+    local target=x86_64-unknown-linux-gnu
+    local build_dir=${ROOT_DIR}/target/${target}/release
+    local stage_dir=${OUTPUT_DIR}/${target}
+    local output_dir=${OUTPUT_DIR}/${target}/flash-rover
+    local tarball=flash-rover-${VERSION}-$target}
+
+    echo "Build ${target}"
+    rm -rf "${build_dir}" 2> /dev/null
+    (cd "${ROOT_DIR}" && \
+        "${CROSS}" build --release --target=${target})
+
+    echo "Make tarball"
+    rm -rf "${output_dir}" 2> /dev/null
+    mkdir -p "${output_dir}"
+
+    cp -t "${output_dir}" "${build_dir}/flash-rover"
+    cp -r -t "${output_dir}" "${build_dir}/jassets/"
+    mkdir -o "${output_dir}/deps"
+    cp -r -t "${output_dir}/deps" "${build_dir}/deps/libj4rs-*.so"
+
+    (cd "${stage_dir}" && \
+        tar -czf "${tarball}" flash-rover && \
+        mv "${tarball}" "${OUTPUT_DIR}")
+}
+
 mk_tarball() {
     local target=$1
-    local name=flash-rover-${VERSION}-${target}
     local tarball=${name}.tar.gz
     local target_dir=${OUTPUT_DIR}/${name}
     local stage_dir=${target_dir}/flash-rover
@@ -60,10 +85,7 @@ docker_build() {
 }
 
 main() {
-    cross_build x86_64-unknown-linux-gnu
-    cross_build x86_64-unknown-linux-musl
-    cross_build x86_64-pc-windows-gnu
-    docker_build x86_64-apple-darwin
+    x86_64-unknown-linux-gnu
 }
 
 main

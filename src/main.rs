@@ -3,32 +3,23 @@
 // (see LICENSE or <https://opensource.org/licenses/BSD-3-Clause>) All files in the project
 // notice may not be copied, modified, or distributed except according to those terms.
 
-extern crate byte_unit;
 #[macro_use]
 extern crate clap;
-//#[macro_use]
-extern crate j4rs;
 extern crate path_clean;
 extern crate path_slash;
-extern crate rust_embed;
-#[macro_use]
 extern crate snafu;
-extern crate tempfile;
+extern crate xflash;
 
+use std::env;
+use std::path::{Path, PathBuf};
 use std::process;
 
-use snafu::{Backtrace, ErrorCompat, ResultExt, Snafu};
+use snafu::{Backtrace, OptionExt, ResultExt, Snafu};
+
+use args::Args;
 
 mod app;
 mod args;
-mod assets;
-mod dss;
-mod flash_rover;
-mod types;
-mod xflash;
-
-use args::Args;
-use flash_rover::FlashRover;
 
 #[derive(Debug, Snafu)]
 enum Error {
@@ -36,8 +27,15 @@ enum Error {
         source: args::Error,
         backtrace: Backtrace,
     },
-    FlashRoverError {
-        source: flash_rover::Error,
+    CurrentDirError {
+        backtrace: Backtrace,
+    },
+    #[snafu(display("Unable to find CCS root"))]
+    NoCCSDir {
+        backtrace: Backtrace,
+    },
+    XflashError {
+        source: xflash::Error,
         backtrace: Backtrace,
     },
 }
@@ -45,20 +43,40 @@ enum Error {
 type Result<T, E = Error> = std::result::Result<T, E>;
 
 fn main() {
-    if let Err(e) = run() {
-        eprintln!("error: {}", e);
-        if let Some(backtrace) = ErrorCompat::backtrace(&e) {
-            eprintln!("{}", backtrace);
-        }
+    if let Err(err) = run() {
+        eprintln!("{:?}", err);
         process::exit(1);
     }
 }
 
 fn run() -> Result<()> {
-    let args = Args::parse().context(ArgsError)?;
-    let command = args.command().context(ArgsError)?;
-    let flash_rover = FlashRover::new(command).context(FlashRoverError {})?;
-    flash_rover.run().context(FlashRoverError {})?;
+    let current_dir = get_current_dir().context(CurrentDirError{})?;
+    let ccs_root = get_ccs_root(&current_dir).context(NoCCSDir{})?;
+
+    let args = Args::parse().context(ArgsError{})?;
+    let command = args.command(&ccs_root).context(ArgsError{})?;
+
+    xflash::run(command).context(XflashError {})?;
 
     Ok(())
+}
+
+fn get_current_dir() -> Option<PathBuf> {
+    env::current_exe()
+        .ok()?
+        .parent()
+        .map(Into::into)
+}
+
+fn get_ccs_root(current_dir: &Path) -> Option<PathBuf> {
+    if cfg!(debug_assertions) {
+        env::var_os("CCS_ROOT")
+            .map(Into::into)
+    } else {
+        // Find <SDK> in ancestors where <SDK>/ccs_base and <SDK>/eclipse exists
+        current_dir
+            .ancestors()
+            .find(|p| p.join("ccs_base").exists() && p.join("eclipse").exists())
+            .map(Into::into)
+    }
 }

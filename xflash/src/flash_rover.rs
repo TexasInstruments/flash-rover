@@ -7,12 +7,19 @@ use std::io::{self, Read, Write};
 use std::thread;
 use std::time::Duration;
 
+use dss::{
+    com::ti::{
+        ccstudio::scripting::environment::{ScriptingEnvironment, TraceLevel},
+        debug::engine::scripting::{DebugServer, DebugSession, Register},
+    },
+    Dss,
+};
 use snafu::{Backtrace, IntoError, ResultExt, Snafu};
-use tempfile::TempPath;
+use tempfile::{TempPath, NamedTempFile};
 
-use crate::args;
+
 use crate::assets;
-use crate::dss;
+use crate::command::{Command, Subcommand};
 use crate::types::{Device, SpiPin};
 use crate::xflash::XflashInfo;
 
@@ -25,7 +32,7 @@ pub enum Error {
     },
     #[snafu(display("A DSS error occured: {}", source))]
     DssError {
-        source: dss::Error,
+        source: jni::errors::Error,
         backtrace: Backtrace,
     },
     #[snafu(display("Unable to create CCXML file: {}", source))]
@@ -44,6 +51,7 @@ pub enum Error {
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
+const DEBUG_SERVER_NAME: &str = "DebugServer.1";
 const LOG_FILENAME: &str = "dss_log.xml";
 const LOG_STYLESHEET: &str = "DefaultStylesheet.xsl";
 const SCRIPT_TIMEOUT: Duration = Duration::from_secs(15);
@@ -157,34 +165,38 @@ impl FwRsp {
     }
 }
 
-pub struct FlashRover {
-    command: args::Command,
+pub struct FlashRover<'a> {
+    command: Command,
     ccxml: Option<TempPath>,
-    script: dss::ScriptingEnvironment,
-    debug_server: dss::DebugServer,
-    debug_session: dss::DebugSession,
+    dss_logfile: NamedTempFile,
+    script: ScriptingEnvironment<'a>,
+    debug_server: DebugServer<'a>,
+    debug_session: DebugSession<'a>,
 }
 
-impl FlashRover {
-    pub fn new(command: args::Command) -> Result<Self> {
+impl<'a> FlashRover<'a> {
+    pub fn new(dss_obj: &'a Dss, command: Command) -> Result<Self> {
         let ccxml = create_ccxml(&command.xds_id, command.device_kind)?;
-        let jvm = dss::build_jvm(command.ccs_path.as_path()).context(DssError {})?;
+        let dss_logfile = NamedTempFile::new().context(IoError{})?;
 
-        let script = dss::ScriptingEnvironment::new(jvm).context(DssError {})?;
-        script
-            .trace_begin(LOG_FILENAME, LOG_STYLESHEET)
-            .context(DssError {})?;
-        script
-            .trace_set_console_level(dss::TraceLevel::Off)
-            .context(DssError {})?;
-        script
-            .trace_set_file_level(dss::TraceLevel::All)
-            .context(DssError {})?;
-        script
-            .set_script_timeout(SCRIPT_TIMEOUT)
-            .context(DssError {})?;
+        let script = dss_obj.scripting_environment().context(DssError {})?;
 
-        let debug_server = script.get_server().context(DssError {})?;
+        if let Some(dss_logfile_path) = dss_logfile.path().to_str() {
+            script
+                .trace_begin(dss_logfile_path, LOG_STYLESHEET)
+                .context(DssError {})?;
+            script
+                .trace_set_console_level(TraceLevel::Off)
+                .context(DssError {})?;
+            script
+                .trace_set_file_level(TraceLevel::All)
+                .context(DssError {})?;
+            script
+                .set_script_timeout(SCRIPT_TIMEOUT)
+                .context(DssError {})?;
+        }
+
+        let debug_server = script.get_server(DEBUG_SERVER_NAME).context(DssError {})?;
         debug_server
             .set_config(&ccxml.to_string_lossy().to_owned())
             .context(DssError {})?;
@@ -204,6 +216,7 @@ impl FlashRover {
         Ok(Self {
             command,
             ccxml,
+            dss_logfile,
             script,
             debug_server,
             debug_session,
@@ -211,7 +224,7 @@ impl FlashRover {
     }
 
     pub fn run(self) -> Result<()> {
-        use args::Subcommand::*;
+        use Subcommand::*;
 
         self.inject()?;
 
@@ -241,44 +254,44 @@ impl FlashRover {
         let fw = create_firmware(self.command.device_kind)?;
 
         memory
-            .load_raw(0, SRAM_START, fw.to_str().unwrap(), 32, false)
+            .load_raw(0, SRAM_START as _, fw.to_str().unwrap(), 32, false as _)
             .context(DssError {})?;
 
         fw.close().context(IoError {})?;
 
         if let Some(spi_pins) = self.command.spi_pins.as_ref() {
             memory
-                .write_data(0, CONF_VALID, 1, 32)
+                .write_data(0, CONF_VALID as _, 1, 32)
                 .context(DssError {})?;
             memory
-                .write_data(0, CONF_SPI_MISO, spi_pins[SpiPin::Miso] as u32, 32)
+                .write_data(0, CONF_SPI_MISO as _, spi_pins[SpiPin::Miso] as _, 32)
                 .context(DssError {})?;
             memory
-                .write_data(0, CONF_SPI_MOSI, spi_pins[SpiPin::Mosi] as u32, 32)
+                .write_data(0, CONF_SPI_MOSI as _, spi_pins[SpiPin::Mosi] as _, 32)
                 .context(DssError {})?;
             memory
-                .write_data(0, CONF_SPI_CLK, spi_pins[SpiPin::Clk] as u32, 32)
+                .write_data(0, CONF_SPI_CLK as _, spi_pins[SpiPin::Clk] as _, 32)
                 .context(DssError {})?;
             memory
-                .write_data(0, CONF_SPI_CSN, spi_pins[SpiPin::Csn] as u32, 32)
+                .write_data(0, CONF_SPI_CSN as _, spi_pins[SpiPin::Csn] as _, 32)
                 .context(DssError {})?;
         }
 
         let stack_addr = memory
-            .read_data(0, STACK_ADDR, 32, false)
+            .read_data(0, STACK_ADDR as _, 32, false as _)
             .context(DssError {})?;
         let reset_isr = memory
-            .read_data(0, RESET_ISR, 32, false)
+            .read_data(0, RESET_ISR as _, 32, false as _)
             .context(DssError {})?;
 
         memory
-            .write_register(dss::Register::MSP, stack_addr)
+            .write_register(Register::MSP, stack_addr)
             .context(DssError {})?;
         memory
-            .write_register(dss::Register::PC, reset_isr)
+            .write_register(Register::PC, reset_isr)
             .context(DssError {})?;
         memory
-            .write_register(dss::Register::LR, 0xFFFF_FFFF)
+            .write_register(Register::LR, 0xFFFF_FFFF)
             .context(DssError {})?;
 
         self.debug_session
@@ -295,23 +308,23 @@ impl FlashRover {
         let fw_cmd_bytes = fw_cmd.to_bytes();
 
         memory
-            .write_data(0, DOORBELL_CMD + 0x0C, fw_cmd_bytes[3], 32)
+            .write_data(0, (DOORBELL_CMD + 0x0C) as _, fw_cmd_bytes[3] as _, 32)
             .context(DssError {})?;
         memory
-            .write_data(0, DOORBELL_CMD + 0x08, fw_cmd_bytes[2], 32)
+            .write_data(0, (DOORBELL_CMD + 0x08) as _, fw_cmd_bytes[2] as _, 32)
             .context(DssError {})?;
         memory
-            .write_data(0, DOORBELL_CMD + 0x04, fw_cmd_bytes[1], 32)
+            .write_data(0, (DOORBELL_CMD + 0x04) as _, fw_cmd_bytes[1] as _, 32)
             .context(DssError {})?;
         // Kind must be written last to trigger the command
         memory
-            .write_data(0, DOORBELL_CMD, fw_cmd_bytes[0], 32)
+            .write_data(0, DOORBELL_CMD as _, fw_cmd_bytes[0] as _, 32)
             .context(DssError {})?;
 
         const SLEEP_TIME: Duration = Duration::from_millis(100);
 
         while memory
-            .read_data(0, DOORBELL_CMD, 32, false)
+            .read_data(0, DOORBELL_CMD as _, 32, false as _)
             .context(DssError {})?
             != 0
         {
@@ -319,7 +332,7 @@ impl FlashRover {
         }
 
         while memory
-            .read_data(0, DOORBELL_RSP, 32, false)
+            .read_data(0, DOORBELL_RSP as _, 32, false as _)
             .context(DssError {})?
             == 0
         {
@@ -328,21 +341,21 @@ impl FlashRover {
 
         let fw_rsp_bytes: [u32; 4] = [
             memory
-                .read_data(0, DOORBELL_RSP, 32, false)
-                .context(DssError {})?,
+                .read_data(0, DOORBELL_RSP as _, 32, false as _)
+                .context(DssError {})? as _,
             memory
-                .read_data(0, DOORBELL_RSP + 0x04, 32, false)
-                .context(DssError {})?,
+                .read_data(0, (DOORBELL_RSP + 0x04) as _, 32, false as _)
+                .context(DssError {})? as _,
             memory
-                .read_data(0, DOORBELL_RSP + 0x08, 32, false)
-                .context(DssError {})?,
+                .read_data(0, (DOORBELL_RSP + 0x08) as _, 32, false as _)
+                .context(DssError {})? as _,
             memory
-                .read_data(0, DOORBELL_RSP + 0x0C, 32, false)
-                .context(DssError {})?,
+                .read_data(0, (DOORBELL_RSP + 0x0C) as _, 32, false as _)
+                .context(DssError {})? as _,
         ];
 
         memory
-            .write_data(0, DOORBELL_RSP, 0, 32)
+            .write_data(0, DOORBELL_RSP as _, 0, 32)
             .context(DssError {})?;
 
         FwRsp::from_bytes(&fw_rsp_bytes)
@@ -431,8 +444,9 @@ impl FlashRover {
             }
 
             let data = memory
-                .read_datas(0, XFLASH_BUF_START, 8, ilength as usize, false)
+                .read_datas(0, XFLASH_BUF_START as _, 8, ilength as _, false as _)
                 .context(DssError {})?;
+            let data: Vec<u8> = data.into_iter().map(|n| n as _).collect();
             io::copy(&mut data.as_slice(), output).context(IoError {})?;
 
             length_rest -= ilength;
@@ -482,11 +496,12 @@ impl FlashRover {
             self.sector_erase(offset, length)?;
         }
 
+        let vec: Vec<jni::sys::jlong> = vec.into_iter().map(|n| n as _).collect();
         for chunk in vec.chunks(XFLASH_BUF_SIZE as usize) {
             let ilength = chunk.len() as u32;
 
             memory
-                .write_datas(0, XFLASH_BUF_START, chunk, 8)
+                .write_datas(0, XFLASH_BUF_START as _, chunk, 8)
                 .context(DssError {})?;
 
             let fw_cmd = FwCmd::WriteBlock {
@@ -513,16 +528,16 @@ impl FlashRover {
     }
 }
 
-impl Drop for FlashRover {
+impl<'a> Drop for FlashRover<'a> {
     fn drop(&mut self) {
-        let f = || -> Result<(), dss::Error> {
+        let f = || -> Result<(), Box<dyn std::error::Error>> {
             self.debug_session.target.halt()?;
             self.debug_session.target.reset()?;
             self.debug_session.target.disconnect()?;
 
             self.debug_server.stop()?;
 
-            self.script.trace_set_console_level(dss::TraceLevel::Info)?;
+            self.script.trace_set_console_level(TraceLevel::Info)?;
             self.script.trace_end()?;
 
             Ok(())

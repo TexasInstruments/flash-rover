@@ -1,0 +1,8 @@
+[target.x86_64-apple-darwin]
+image = "flash-rover/crossbuild:x86_64-apple-darwin"
+
+[target.x86_64-unknown-linux-gnu]
+image = "flash-rover/cross:x86_64-unknown-linux-gnu"
+
+[target.x86_64-pc-windows-gnu]
+image = "flash-rover/cross:x86_64-pc-windows-gnu"
