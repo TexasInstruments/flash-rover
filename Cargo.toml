@@ -1,6 +1,6 @@
 [package]
 name = "flash-rover"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Texas Instruments <ti.com>"]
 license = "BSD-3-Clause"
 edition = "2018"
