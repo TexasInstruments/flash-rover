@@ -5,7 +5,6 @@
 
 extern crate byte_unit;
 extern crate dss;
-extern crate jni;
 extern crate path_clean;
 extern crate path_slash;
 extern crate rust_embed;

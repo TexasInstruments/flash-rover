@@ -28,7 +28,7 @@ pub enum Error {
     },
     #[snafu(display("A DSS error occured: {}", source))]
     DssError {
-        source: jni::errors::Error,
+        source: dss::Error,
         backtrace: Backtrace,
     },
     #[snafu(display("Unable to create CCXML file: {}", source))]
@@ -472,7 +472,7 @@ impl<'a> FlashRover<'a> {
             self.sector_erase(offset, length)?;
         }
 
-        let vec: Vec<jni::sys::jlong> = vec.into_iter().map(|n| n as _).collect();
+        let vec: Vec<dss::sys::jlong> = vec.into_iter().map(|n| n as _).collect();
         for chunk in vec.chunks(XFLASH_BUF_SIZE as usize) {
             let ilength = chunk.len() as u32;
 

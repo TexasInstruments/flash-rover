@@ -16,6 +16,8 @@ use path_clean::PathClean;
 
 use com::ti::ccstudio::scripting::environment::ScriptingEnvironment;
 
+pub mod sys;
+
 pub type Error = jni::errors::Error;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
