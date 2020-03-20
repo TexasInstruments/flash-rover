@@ -1,3 +1,4 @@
+use std::str;
 use std::string;
 use std::time::Duration;
 
@@ -34,6 +35,25 @@ impl string::ToString for TraceLevel {
             TraceLevel::All => "ALL",
         };
         res.to_owned()
+    }
+}
+
+impl str::FromStr for TraceLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "OFF" => Ok(TraceLevel::Off),
+            "SEVERE" => Ok(TraceLevel::Severe),
+            "WARNING" => Ok(TraceLevel::Warning),
+            "INFO" => Ok(TraceLevel::Info),
+            "CONFIG" => Ok(TraceLevel::Config),
+            "FINE" => Ok(TraceLevel::Fine),
+            "FINER" => Ok(TraceLevel::Finer),
+            "FINEST" => Ok(TraceLevel::Finest),
+            "ALL" => Ok(TraceLevel::All),
+            _ => Err(format!("Invalid TraceLevel string {}", s).into()),
+        }
     }
 }
 

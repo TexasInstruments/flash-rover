@@ -102,6 +102,15 @@ impl Args {
         Ok(Self { matches })
     }
 
+    fn log_dss(&self) -> Result<String> {
+        const ARG: &str = "log-dss";
+        let arg = self
+            .matches
+            .value_of_lossy(ARG)
+            .context(MissingArgument { arg: ARG })?;
+        Ok(arg)
+    }
+
     fn xds_id(&self) -> Result<String> {
         const ARG: &str = "xds";
         let arg = self
@@ -177,6 +186,7 @@ impl Args {
     pub fn command(&self, ccs_path: &Path) -> Result<Command, Error> {
         Ok(Command {
             ccs_path: ccs_path.into(),
+            log_dss: self.log_dss()?,
             xds_id: self.xds_id()?,
             device_kind: self.device_kind()?,
             spi_pins: self.spi_pins()?,

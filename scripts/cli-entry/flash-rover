@@ -1,16 +1,17 @@
 #!/bin/bash
 
 CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+CCS_ROOT=${CURR_DIR}/../..
 
 UNAME_OUT="$(uname -s)"
 
 case "${UNAME_OUT}" in
     Darwin*)
-        LIBJVM_PATH=${CURR_DIR}/../../eclipse/Ccstudio.app/jre/Contents/Home/lib/server
-        LIBJVM_NAME=libjvm.dylib
+        LIBJVM_PATH=${CCS_ROOT}/eclipse/Ccstudio.app/jre/Contents/Home/lib/jli
+        LIBJVM_NAME=libjli.dylib
         ;;
     Linux* | *)
-        LIBJVM_PATH=${CURR_DIR}/../../eclipse/jre/lib/amd64/server
+        LIBJVM_PATH=${CCS_ROOT}/eclipse/jre/lib/amd64/server
         LIBJVM_NAME=libjvm.so
         ;;
 esac
@@ -20,7 +21,6 @@ if [ ! -f "${LIBJVM_PATH}/${LIBJVM_NAME}" ]; then
     exit 1
 fi
 
-LD_LIBRARY_PATH=${LIBJVM_PATH}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-export LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=${LIBJVM_PATH}
 
 exec "$CURR_DIR/ti-xflash" "$@"

@@ -1,6 +1,5 @@
-
-use std::io::{Read, Write};
 use std::cell::RefCell;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use crate::types::{Device, SpiPins};
@@ -27,6 +26,7 @@ pub enum Subcommand {
 
 pub struct Command {
     pub ccs_path: PathBuf,
+    pub log_dss: String,
     pub xds_id: String,
     pub device_kind: Device,
     pub spi_pins: Option<SpiPins>,

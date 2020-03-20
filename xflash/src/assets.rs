@@ -10,7 +10,7 @@ use rust_embed::RustEmbed;
 use crate::types::Device;
 
 #[derive(RustEmbed)]
-#[folder = "xflash/src/assets"]
+#[folder = "./src/assets"]
 struct Asset;
 
 pub fn get_ccxml_template(device: Device) -> Option<Cow<'static, [u8]>> {

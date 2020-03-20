@@ -50,11 +50,11 @@ fn main() {
 }
 
 fn run() -> Result<()> {
-    let current_dir = get_current_dir().context(CurrentDirError{})?;
-    let ccs_root = get_ccs_root(&current_dir).context(NoCCSDir{})?;
+    let current_dir = get_current_dir().context(CurrentDirError {})?;
+    let ccs_root = get_ccs_root(&current_dir).context(NoCCSDir {})?;
 
-    let args = Args::parse().context(ArgsError{})?;
-    let command = args.command(&ccs_root).context(ArgsError{})?;
+    let args = Args::parse().context(ArgsError {})?;
+    let command = args.command(&ccs_root).context(ArgsError {})?;
 
     xflash::run(command).context(XflashError {})?;
 
@@ -62,16 +62,12 @@ fn run() -> Result<()> {
 }
 
 fn get_current_dir() -> Option<PathBuf> {
-    env::current_exe()
-        .ok()?
-        .parent()
-        .map(Into::into)
+    env::current_exe().ok()?.parent().map(Into::into)
 }
 
 fn get_ccs_root(current_dir: &Path) -> Option<PathBuf> {
     if cfg!(debug_assertions) {
-        env::var_os("CCS_ROOT")
-            .map(Into::into)
+        env::var_os("CCS_ROOT").map(Into::into)
     } else {
         // Find <SDK> in ancestors where <SDK>/ccs_base and <SDK>/eclipse exists
         current_dir

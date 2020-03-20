@@ -7,16 +7,12 @@ use std::io::{self, Read, Write};
 use std::thread;
 use std::time::Duration;
 
-use dss::{
-    com::ti::{
-        ccstudio::scripting::environment::{ScriptingEnvironment, TraceLevel},
-        debug::engine::scripting::{DebugServer, DebugSession, Register},
-    },
-    Dss,
+use dss::com::ti::{
+    ccstudio::scripting::environment::ScriptingEnvironment,
+    debug::engine::scripting::{DebugServer, DebugSession, Register},
 };
 use snafu::{Backtrace, IntoError, ResultExt, Snafu};
-use tempfile::{TempPath, NamedTempFile};
-
+use tempfile::TempPath;
 
 use crate::assets;
 use crate::command::{Command, Subcommand};
@@ -52,8 +48,6 @@ pub enum Error {
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 const DEBUG_SERVER_NAME: &str = "DebugServer.1";
-const LOG_FILENAME: &str = "dss_log.xml";
-const LOG_STYLESHEET: &str = "DefaultStylesheet.xsl";
 const SCRIPT_TIMEOUT: Duration = Duration::from_secs(15);
 const SESSION_PATTERN: &str = "Texas Instruments XDS110 USB Debug Probe/Cortex_M(3|4)_0";
 
@@ -168,33 +162,17 @@ impl FwRsp {
 pub struct FlashRover<'a> {
     command: Command,
     ccxml: Option<TempPath>,
-    dss_logfile: NamedTempFile,
-    script: ScriptingEnvironment<'a>,
     debug_server: DebugServer<'a>,
     debug_session: DebugSession<'a>,
 }
 
 impl<'a> FlashRover<'a> {
-    pub fn new(dss_obj: &'a Dss, command: Command) -> Result<Self> {
+    pub fn new(script: &'a ScriptingEnvironment, command: Command) -> Result<Self> {
         let ccxml = create_ccxml(&command.xds_id, command.device_kind)?;
-        let dss_logfile = NamedTempFile::new().context(IoError{})?;
 
-        let script = dss_obj.scripting_environment().context(DssError {})?;
-
-        if let Some(dss_logfile_path) = dss_logfile.path().to_str() {
-            script
-                .trace_begin(dss_logfile_path, LOG_STYLESHEET)
-                .context(DssError {})?;
-            script
-                .trace_set_console_level(TraceLevel::Off)
-                .context(DssError {})?;
-            script
-                .trace_set_file_level(TraceLevel::All)
-                .context(DssError {})?;
-            script
-                .set_script_timeout(SCRIPT_TIMEOUT)
-                .context(DssError {})?;
-        }
+        script
+            .set_script_timeout(SCRIPT_TIMEOUT)
+            .context(DssError {})?;
 
         let debug_server = script.get_server(DEBUG_SERVER_NAME).context(DssError {})?;
         debug_server
@@ -216,8 +194,6 @@ impl<'a> FlashRover<'a> {
         Ok(Self {
             command,
             ccxml,
-            dss_logfile,
-            script,
             debug_server,
             debug_session,
         })
@@ -536,9 +512,6 @@ impl<'a> Drop for FlashRover<'a> {
             self.debug_session.target.disconnect()?;
 
             self.debug_server.stop()?;
-
-            self.script.trace_set_console_level(TraceLevel::Info)?;
-            self.script.trace_end()?;
 
             Ok(())
         };
