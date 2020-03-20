@@ -22,10 +22,12 @@ install() {
     rm -rf "${install_dir}" 2> /dev/null
     mkdir -p "${install_dir}"
 
-    if test -f "${cargo_out_dir}/flash-rover.exe"; then
-        cp -t "${install_dir}" "${cargo_out_dir}/flash-rover.exe"
+    if test -f "${cargo_out_dir}/ti-xflash.exe"; then
+        cp -t "${install_dir}" "${ROOT_DIR}/scripts/cli-entry/flash-rover.bat"
+        cp -t "${install_dir}" "${cargo_out_dir}/ti-xflash.exe"
     else
-        cp -t "${install_dir}" "${cargo_out_dir}/flash-rover"
+        cp -t "${install_dir}" "${ROOT_DIR}/scripts/cli-entry/flash-rover"
+        cp -t "${install_dir}" "${cargo_out_dir}/ti-xflash"
     fi
 }
 

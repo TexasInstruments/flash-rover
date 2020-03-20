@@ -12,3 +12,4 @@ RUN apt-get clean && \
 
 # Set necessary environment variables
 ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
