@@ -50,10 +50,11 @@ fn main() {
 }
 
 fn run() -> Result<()> {
+    let args = Args::parse().context(ArgsError {})?;
+    
     let current_dir = get_current_dir().context(CurrentDirError {})?;
     let ccs_root = get_ccs_root(&current_dir).context(NoCCSDir {})?;
 
-    let args = Args::parse().context(ArgsError {})?;
     let command = args.command(&ccs_root).context(ArgsError {})?;
 
     xflash::run(command).context(XflashError {})?;

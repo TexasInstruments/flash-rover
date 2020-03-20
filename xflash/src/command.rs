@@ -1,3 +1,8 @@
+// Copyright (c) 2020 , Texas Instruments.
+// Licensed under the BSD-3-Clause license
+// (see LICENSE or <https://opensource.org/licenses/BSD-3-Clause>) All files in the project
+// notice may not be copied, modified, or distributed except according to those terms.
+
 use std::cell::RefCell;
 use std::io::{Read, Write};
 use std::path::PathBuf;

@@ -1,4 +1,9 @@
 @ECHO OFF
+rem Copyright (c) 2020 , Texas Instruments.
+rem Licensed under the BSD-3-Clause license
+rem (see LICENSE or <https://opensource.org/licenses/BSD-3-Clause>) All files in the project
+rem notice may not be copied, modified, or distributed except according to those terms.
+
 SETLOCAL enableextensions
 
 SET /A ERRNO=0

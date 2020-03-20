@@ -61,9 +61,23 @@ functionally compatible, will most likely work with *flash-rover*.
 ## Usage
 
 Download the correct zip folder for your operating system from the [Releases
-page](https://github.com/ti-simplelink/flash-rover/releases) and extract it. Add
-the path to the executable to the environment `PATH` variable, or `cd` into the
-directory of the executable.
+page](https://github.com/ti-simplelink/flash-rover/releases) and extract the zip
+folder under the `<CCS_ROOT>/utils/` folder, where `<CCS_ROOT>` is
+your locally installed [CCS].
+
+```bash
+$ cd <CCS_ROOT>/utils
+$ tar -xzvf ~/flash-rover-<VERSION>-<ARCH>.tar.gz
+$ cd flash-rover
+$ ls
+flash-rover  ti-xflash
+$ ./flash-rover --version
+flash-rover 0.3.0
+```
+
+If you want to, you can add the `<CCS_ROOT>/utils/flash-rover/` path to the
+environment `PATH` variable in order to invoke flash-rover from any context, or
+`cd` into the directory of the executable.
 
 Refer to the help menu of the executable for documentation on the CLI and the
 different subcommands:
@@ -74,8 +88,11 @@ $ flash-rover help write
 $ flash-rover write --help
 ```
 
-The CCS path must point to the CCS installation folder. Note that this folder
-should contain the `ccs_base/` subfolder.
+Note that it is required that *flash-rover* is placed and called from
+`<CCS_ROOT>/utils/flash-rover/` folder in order to properly work, where
+`<CCS_ROOT>` contains the `ccs_base/` folder. This is because some environment
+variables are required to be setup before invoking the executable, which is done
+by the startup script.
 
 
 ### Examples
@@ -83,7 +100,7 @@ should contain the `ccs_base/` subfolder.
 Reading the external flash device information of a CC13x2/CC26x2 LaunchPad:
 
 ```bash
-$ flash-rover --ccs /path/to/ccs/install/folder \
+$ flash-rover \
     --device cc13x2_cc26x2 \
     --xds L4100009 \
     info
@@ -95,12 +112,12 @@ CC2640R2 LaunchPad and store it in a new file called `output.bin`:
 
 ```bash
 # You can either stream the output into a file
-$ flash-rover --ccs /path/to/ccs/install/folder \
+$ flash-rover \
     --device cc26x0r2 \
     --xds L50012SB \
     read 0 10 > output.bin 
 # or explicitly specify the output file 
-$ flash-rover --ccs /path/to/ccs/install/folder \
+$ flash-rover \
     --device cc26x0r2 \
     --xds L50012SB \
     read 0 10 --output output.bin
@@ -113,16 +130,16 @@ changed:
 
 ```bash
 $ echo "Powered by flash-rover!" > input.txt
-$ flash-rover --ccs /path/to/ccs/install/folder \
+$ flash-rover \
     --device cc13x0 \
     --xds L200005Z \
     read 100 $(wc -c < input.txt)
 
-$ flash-rover --ccs /path/to/ccs/install/folder \
+$ flash-rover \
     --device cc13x0 \
     --xds L200005Z \
     write 100 --erase < input.txt
-$ flash-rover --ccs /path/to/ccs/install/folder \
+$ flash-rover \
     --device cc13x0 \
     --xds L200005Z \
     read 100 $(wc -c < input.txt)
@@ -151,18 +168,25 @@ than building from source.
 The CLI is written in Rust and the device firmware is written in C++. Building
 the CLI requires in general the latest stable release of the Rust compiler. See
 [rustup] on how to install Rust. There already exists pre-compiled binaries of
-the device firmware under `src/assets/fw`, however, building the device firmware
+the device firmware under `xflash/src/assets/fw`, however, building the device firmware
 requires CCS version 9.0 or later.
 
-To build *flash-rover* from source:
+In order to build *flash-rover* from source you will have to have Jave
+Development Kit (JDK) installed, and the `JAVA_HOME` environment variable must
+point to the location of the installed JDK.
 
 ```bash
 $ git clone https://github.com/ti-simplelink/flash-rover
 $ cd flash-rover
+$ export JAVA_HOME=/path/to/installed/jdk
 $ cargo build --release
-$ ./target/release/flash-rover --version
-flash-rover 0.2.0
+$ scripts/install.sh
+$ ls output/flash-rover
+flash-rover  ti-xflash
 ```
+
+You must then copy the `flash-rover/` folder under `output/` to the
+`<CCS_ROOT>/utils/` folder, where `<CCS_ROOT>` is your locally installed [CCS].
 
 
 [rustup]:    https://rustup.rs/
