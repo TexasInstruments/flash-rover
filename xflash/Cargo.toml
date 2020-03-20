@@ -7,10 +7,10 @@ edition = "2018"
 
 [dependencies]
 byte-unit = "3.0"
-jni = "0.14"
+jni = { version = "0.15", git = "https://github.com/tiepettersen/jni-rs/", branch = "bugfix/java6-popup" }
 path-clean = "0.1"
 path-slash = "0.1"
-rust-embed = "5.2"
+rust-embed = "5.5"
 snafu = "0.6"
 tempfile = "3.1"
 
