@@ -9,8 +9,8 @@ path-clean = "0.1"
 path-slash = "0.1"
 
 [dependencies.jni]
-version = "0.15"
+#version = "0.15"
 features = ["invocation"]
-git = "https://github.com/tiepettersen/jni-rs/"
-branch = "bugfix/java6-popup"
+git = "https://github.com/jni-rs/jni-rs/"
+rev = "513c81131008145b715eddfd871b4ef9d16df08b"
 
