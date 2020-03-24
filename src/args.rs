@@ -11,10 +11,9 @@ use std::str;
 
 use snafu::{Backtrace, OptionExt, ResultExt, Snafu};
 
-use xflash::command::{Command, Subcommand};
-use xflash::types::{Device, SpiPins};
-
 use crate::app;
+use crate::command::{Command, Subcommand};
+use crate::types::{Device, SpiPins};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
@@ -168,7 +167,8 @@ impl Args {
                 ),
             },
             ("write", Some(matches)) => Subcommand::Write {
-                erase: matches.is_present("erase"),
+                verify: matches.is_present("verify"),
+                in_place: matches.is_present("in-place"),
                 offset: matches
                     .parse_of_lossy("offset")?
                     .expect("Missing required argument 'offset'"),

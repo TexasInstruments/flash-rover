@@ -22,7 +22,8 @@ pub enum Subcommand {
         output: RefCell<Box<dyn Write>>,
     },
     Write {
-        erase: bool,
+        verify: bool,
+        in_place: bool,
         offset: u32,
         length: Option<u32>,
         input: RefCell<Box<dyn Read>>,

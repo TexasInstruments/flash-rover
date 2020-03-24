@@ -70,7 +70,7 @@ pub struct ScriptingEnvironment<'a> {
 impl<'a> ScriptingEnvironment<'a> {
     const CLASS: &'static str = "Lcom/ti/ccstudio/scripting/environment/ScriptingEnvironment;";
 
-    pub(crate) fn new(env: JNIEnv<'a>) -> Result<Self> {
+    pub(crate) fn new(env: JNIEnv<'a>) -> Result<ScriptingEnvironment<'a>> {
         const METHOD: &str = "instance";
         const SIGNATURE: &str = "()Lcom/ti/ccstudio/scripting/environment/ScriptingEnvironment;";
 

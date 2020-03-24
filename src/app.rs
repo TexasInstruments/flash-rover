@@ -13,7 +13,10 @@ pub fn app() -> App<'static, 'static> {
         .max_term_width(100)
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .arg(Arg::with_name("log-dss")
-            .help("Log DSS script with a specified log level to a temporary log file. If a DSS error occurs the log file will be saved and the path will be displayed. If OFF is specified then no logging will happen.")
+            .help("Log DSS script with a specified log level")
+            .long_help(
+"Log DSS script with a specified log level to a temporary log file. If a DSS error occurs the log \
+file will be saved and the path will be displayed. If OFF is specified then no logging will happen.")
             .long("log-dss")
             .value_name("LEVEL")
             .default_value("OFF")
@@ -98,10 +101,10 @@ fn subcommand_read() -> App<'static, 'static> {
         )
         .arg(
             Arg::with_name("output")
+                .help("File to store read data. Will overwrite file. Writes to stdout if omitted.")
                 .short("o")
                 .long("output")
                 .value_name("FILE")
-                .help("File to store read data. Will overwrite file. Writes to stdout if omitted.")
                 .takes_value(true),
         )
 }
@@ -110,10 +113,23 @@ fn subcommand_write() -> App<'static, 'static> {
     SubCommand::with_name("write")
         .about("Write data to an address range on the external flash")
         .arg(
-            Arg::with_name("erase")
-                .help("Erase sectors before writing to them")
-                .short("e")
-                .long("erase"),
+            Arg::with_name("verify")
+                .help("Verify the integrity of the written data")
+                .long_help(
+"Verify that the written data was successfully written by reading back the data from external flash \
+and compare. Verification is done per sector basis.")
+                .long("verify")
+        )
+        .arg(
+            Arg::with_name("in-place")
+                .help("Write in-place in external flash, without ensuring coherency in touched sectors")
+                .long_help(
+"By default all data in the write address range will be overwritten, and all touched sectors are \
+ensured to retain the data outside the write address range. By writing in-place, data is written to \
+the external flash without first erasing touched sectors. Note that when writing in-place, reading \
+back the same address range may yield different data than initially written.")
+                .short("p")
+                .long("in-place")
         )
         .arg(
             Arg::with_name("offset")
@@ -132,10 +148,10 @@ fn subcommand_write() -> App<'static, 'static> {
         )
         .arg(
             Arg::with_name("input")
+                .help("File to read contents of data to write. Reads from stdin if omitted.")
                 .short("i")
                 .long("input")
                 .value_name("FILE")
-                .help("File to read contents of data to write. Reads from stdin if omitted.")
                 .takes_value(true),
         )
 }

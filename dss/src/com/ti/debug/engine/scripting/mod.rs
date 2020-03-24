@@ -74,7 +74,7 @@ pub struct DebugSession<'a> {
 }
 
 impl<'a> DebugSession<'a> {
-    pub(crate) fn new(env: JNIEnv<'a>, instance: JObject<'a>) -> Result<Self> {
+    pub(crate) fn new(env: JNIEnv<'a>, instance: JObject<'a>) -> Result<DebugSession<'a>> {
         let target = env.get_field(instance, "target", Target::CLASS)?.l()?;
         let memory = env.get_field(instance, "memory", Memory::CLASS)?.l()?;
         let expression = env
@@ -211,6 +211,7 @@ impl string::ToString for Register {
     }
 }
 
+#[derive(Clone)]
 pub struct Memory<'a> {
     env: JNIEnv<'a>,
     instance: JObject<'a>,
