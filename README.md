@@ -40,10 +40,12 @@ The following TI devices are supported:
     * [CC2640R2F]
 * **CC13x2/CC26x2**:
     * [CC1312R]
-    * [CC1352R]
     * [CC1352P]
+    * [CC1352R]
     * [CC2642R]
+    * [CC2652P]
     * [CC2652R]
+    * [CC2652RB]
 
 The following hardware requirements for both TI development boards and custom
 boards are:
@@ -62,8 +64,8 @@ functionally compatible, will most likely work with *flash-rover*.
 
 Download the correct zip folder for your operating system from the [Releases
 page](https://github.com/ti-simplelink/flash-rover/releases) and extract the zip
-folder under the `<CCS_ROOT>/utils/` folder, where `<CCS_ROOT>` is
-your locally installed [CCS].
+folder under the `<CCS_ROOT>/utils/` folder, where `<CCS_ROOT>` is your locally
+installed [CCS].
 
 ```bash
 $ cd <CCS_ROOT>/utils
@@ -97,14 +99,14 @@ by the startup script.
 
 ### Examples
 
-Reading the external flash device information of a CC13x2/CC26x2 LaunchPad:
+Reading the external flash device information of a CC1352R LaunchPad:
 
 ```bash
 $ flash-rover \
-    --device cc13x2_cc26x2 \
+    --device cc1352r \
     --xds L4100009 \
     info
-Macronix MX25R8035F (MID: 0xC2, DID: 0x14, size: 8.00 MiB)
+Macronix MX25R8035F, 8.00 MiB (MID: 0xC2, DID: 0x14)
 ```
 
 Read the first 10 bytes (offset 0, length 10) of the external flash on a
@@ -113,12 +115,12 @@ CC2640R2 LaunchPad and store it in a new file called `output.bin`:
 ```bash
 # You can either stream the output into a file
 $ flash-rover \
-    --device cc26x0r2 \
+    --device cc2640r2f \
     --xds L50012SB \
     read 0 10 > output.bin 
 # or explicitly specify the output file 
 $ flash-rover \
-    --device cc26x0r2 \
+    --device cc2640r2f \
     --xds L50012SB \
     read 0 10 --output output.bin
 ```
@@ -131,16 +133,16 @@ changed:
 ```bash
 $ echo "Powered by flash-rover!" > input.txt
 $ flash-rover \
-    --device cc13x0 \
+    --device cc1310 \
     --xds L200005Z \
     read 100 $(wc -c < input.txt)
 
 $ flash-rover \
-    --device cc13x0 \
+    --device cc1310 \
     --xds L200005Z \
     write 100 --erase < input.txt
 $ flash-rover \
-    --device cc13x0 \
+    --device cc1310 \
     --xds L200005Z \
     read 100 $(wc -c < input.txt)
 Powered by flash-rover!
@@ -168,8 +170,8 @@ than building from source.
 The CLI is written in Rust and the device firmware is written in C++. Building
 the CLI requires in general the latest stable release of the Rust compiler. See
 [rustup] on how to install Rust. There already exists pre-compiled binaries of
-the device firmware under `xflash/src/assets/fw`, however, building the device firmware
-requires CCS version 9.0 or later.
+the device firmware under `xflash/src/assets/fw`, however, building the device
+firmware requires CCS version 9.0 or later.
 
 In order to build *flash-rover* from source you will have to have Jave
 Development Kit (JDK) installed, and the `JAVA_HOME` environment variable must
@@ -193,12 +195,14 @@ You must then copy the `flash-rover/` folder under `output/` to the
 [DSS]:       http://dev.ti.com/tirex/explore/node?node=AO6UKsAhivhxn6EDOzuszQ__FUz-xrs__LATEST
 [CCS]:       http://www.ti.com/tool/CCSTUDIO
 [CC1310]:    http://www.ti.com/product/CC1310
-[CC1350]:    http://www.ti.com/product/CC1350
-[CC2640]:    http://www.ti.com/product/CC2640
-[CC2650]:    http://www.ti.com/product/CC2650
-[CC2640R2F]: http://www.ti.com/product/CC2640R2F
 [CC1312R]:   http://www.ti.com/product/CC1312R
-[CC1352R]:   http://www.ti.com/product/CC1352R
+[CC1350]:    http://www.ti.com/product/CC1350
 [CC1352P]:   http://www.ti.com/product/CC1352P
+[CC1352R]:   http://www.ti.com/product/CC1352R
+[CC2640]:    http://www.ti.com/product/CC2640
+[CC2640R2F]: http://www.ti.com/product/CC2640R2F
 [CC2642R]:   http://www.ti.com/product/CC2642R
+[CC2650]:    http://www.ti.com/product/CC2650
+[CC2652P]:   http://www.ti.com/product/CC2652P
 [CC2652R]:   http://www.ti.com/product/CC2652R
+[CC2652RB]:  http://www.ti.com/product/CC2652RB

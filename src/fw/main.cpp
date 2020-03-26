@@ -96,9 +96,7 @@ private:
 
         if (ret)
         {
-            return {
-                Response::Kind::Ok
-            };
+            return { Response::Kind::Ok };
         }
         else
         {
@@ -115,9 +113,7 @@ private:
 
         if (ret)
         {
-            return {
-                Response::Kind::Ok
-            };
+            return { Response::Kind::Ok };
         }
         else
         {
@@ -136,13 +132,12 @@ private:
         }
 
 
+        memset(xflashbuf, 0, sizeof(xflashbuf));
         bool ret = xflash_.read(xflashbuf, length, offset);
 
         if (ret)
         {
-            return {
-                Response::Kind::Ok
-            };
+            return { Response::Kind::Ok };
         }
         else
         {
@@ -164,9 +159,7 @@ private:
 
         if (ret)
         {
-            return {
-                Response::Kind::Ok
-            };
+            return { Response::Kind::Ok };
         }
         else
         {

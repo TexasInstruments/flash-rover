@@ -119,7 +119,7 @@ impl Args {
         Ok(arg)
     }
 
-    fn device_kind(&self) -> Result<Device> {
+    fn device(&self) -> Result<Device> {
         const ARG: &str = "device";
         let arg = self
             .matches
@@ -188,7 +188,7 @@ impl Args {
             ccs_path: ccs_path.into(),
             log_dss: self.log_dss()?,
             xds_id: self.xds_id()?,
-            device_kind: self.device_kind()?,
+            device: self.device()?,
             spi_pins: self.spi_pins()?,
             subcommand: self.subcommand()?,
         })

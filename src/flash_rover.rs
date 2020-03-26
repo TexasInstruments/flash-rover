@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use dss::com::ti::{
     ccstudio::scripting::environment::ScriptingEnvironment,
-    debug::engine::scripting::{DebugServer, DebugSession, Register},
+    debug::engine::scripting::{DebugServer, DebugSession},
 };
 use snafu::{Backtrace, ResultExt, Snafu};
 use tempfile::TempPath;
@@ -16,11 +16,11 @@ use tempfile::TempPath;
 use crate::assets;
 use crate::command::{Command, Subcommand};
 use crate::firmware::{self, Firmware};
-use crate::types::{Device, SpiPin};
+use crate::types::Device;
 
 #[derive(Debug, Snafu)]
 pub enum Error {
-    #[snafu(display("An IO error has occured: {}", source))]
+    #[snafu(display("An IO error occured: {}", source))]
     IoError {
         source: io::Error,
         backtrace: Backtrace,
@@ -30,24 +30,21 @@ pub enum Error {
         source: dss::Error,
         backtrace: Backtrace,
     },
+    #[snafu(display("A Firmware error occured: {}", source))]
     FirmwareError {
         source: firmware::Error,
         backtrace: Backtrace,
     },
     #[snafu(display("Received too few bytes from input"))]
-    InvalidInputLength {
-        backtrace: Backtrace,
-    },
+    InvalidInputLength { backtrace: Backtrace },
     #[snafu(display("Verification of written data failed"))]
-    VerificationFailed {
-        backtrace: Backtrace,
-    },
+    VerificationFailed { backtrace: Backtrace },
     #[snafu(display("Unable to create CCXML file: {}", source))]
     CreateCcxmlError {
         source: io::Error,
         backtrace: Backtrace,
     },
-    #[snafu(display("Unable to create firmware: {}", source))]
+    #[snafu(display("Unable to create firmware file: {}", source))]
     CreateFirmwareError {
         source: io::Error,
         backtrace: Backtrace,
@@ -60,25 +57,22 @@ const DEBUG_SERVER_NAME: &str = "DebugServer.1";
 const SCRIPT_TIMEOUT: Duration = Duration::from_secs(15);
 const SESSION_PATTERN: &str = "Texas Instruments XDS110 USB Debug Probe/Cortex_M(3|4)_0";
 
-const SRAM_START: u32 = 0x2000_0000;
-const STACK_ADDR: u32 = SRAM_START;
-const RESET_ISR: u32 = SRAM_START + 0x04;
-
-const CONF_START: u32 = 0x2000_3000;
-const CONF_VALID: u32 = CONF_START;
-const CONF_SPI_MISO: u32 = CONF_START + 0x04;
-const CONF_SPI_MOSI: u32 = CONF_START + 0x08;
-const CONF_SPI_CLK: u32 = CONF_START + 0x0C;
-const CONF_SPI_CSN: u32 = CONF_START + 0x10;
-
 fn create_ccxml(xds: &str, device: Device) -> Result<TempPath> {
     let asset = assets::get_ccxml_template(device)
         .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
         .context(CreateCcxmlError {})?;
 
-    let content = String::from_utf8_lossy(&asset[..]);
-    const PATTERN: &str = "<<<SERIAL NUMBER>>>";
-    let content = content.replace(PATTERN, &xds);
+    let patterns = &[
+        ("<<<SERIAL NUMBER>>>", xds),
+        ("<<<DEVICE DESC>>>", device.ccxml_desc()),
+        ("<<<DEVICE XML>>>", device.ccxml_xml()),
+        ("<<<DEVICE ID>>>", device.ccxml_id()),
+    ];
+
+    let content = String::from_utf8_lossy(&asset[..]).to_string();
+    let content = patterns.iter().fold(content, |state, pattern| {
+        state.replace(pattern.0, pattern.1)
+    });
 
     let mut ccxml = tempfile::Builder::new()
         .prefix("flash-rover.ccxml.")
@@ -95,26 +89,8 @@ fn create_ccxml(xds: &str, device: Device) -> Result<TempPath> {
     Ok(path)
 }
 
-fn create_firmware(device: Device) -> Result<TempPath> {
-    let asset = assets::get_firmware(device)
-        .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
-        .context(CreateFirmwareError {})?;
-
-    let mut firmware = tempfile::Builder::new()
-        .prefix("flash-rover.fw.")
-        .suffix(".bin")
-        .tempfile()
-        .context(CreateFirmwareError {})?;
-    firmware.write_all(&asset).context(CreateFirmwareError {})?;
-    let (file, path) = firmware.into_parts();
-    drop(file);
-
-    Ok(path)
-}
-
 pub struct FlashRover<'a> {
     command: Command,
-    ccxml: Option<TempPath>,
     debug_server: DebugServer<'a>,
     debug_session: DebugSession<'a>,
     firmware: Firmware<'a>,
@@ -122,7 +98,7 @@ pub struct FlashRover<'a> {
 
 impl<'a> FlashRover<'a> {
     pub fn new(script: &'a ScriptingEnvironment<'a>, command: Command) -> Result<Self> {
-        let ccxml = create_ccxml(&command.xds_id, command.device_kind)?;
+        let ccxml = create_ccxml(&command.xds_id, command.device)?;
 
         script
             .set_script_timeout(SCRIPT_TIMEOUT)
@@ -137,29 +113,48 @@ impl<'a> FlashRover<'a> {
             .open_session(SESSION_PATTERN)
             .context(DssError {})?;
         debug_session.target.connect().context(DssError {})?;
-        debug_session.target.reset().context(DssError {})?;
-        debug_session
-            .expression
-            .evaluate("GEL_AdvancedReset(\"Board Reset (automatic connect/disconnect)\")")
-            .context(DssError {})?;
 
-        let firmware = Firmware::new(debug_session.memory.clone());
-
-        let ccxml = Some(ccxml);
+        let firmware = Firmware::new(debug_session.memory.clone(), command.device)
+            .context(FirmwareError {})?;
 
         Ok(Self {
             command,
-            ccxml,
             debug_server,
             debug_session,
             firmware,
         })
     }
 
+    fn reset_into_firmware(&self) -> Result<()> {
+        const EXPRESSION_BOARD_RESET: &str =
+            "GEL_AdvancedReset(\"Board Reset (automatic connect/disconnect)\")";
+
+        if !self.debug_session.target.is_halted().context(DssError {})? {
+            self.debug_session.target.halt().context(DssError {})?;
+        }
+
+        self.debug_session.target.reset().context(DssError {})?;
+        self.debug_session
+            .expression
+            .evaluate(EXPRESSION_BOARD_RESET)
+            .context(DssError {})?;
+
+        self.firmware
+            .inject(self.command.spi_pins)
+            .context(FirmwareError {})?;
+
+        self.debug_session
+            .target
+            .run_asynch()
+            .context(DssError {})?;
+
+        Ok(())
+    }
+
     pub fn run(self) -> Result<()> {
         use Subcommand::*;
 
-        self.inject()?;
+        self.reset_into_firmware()?;
 
         match &self.command.subcommand {
             Info => self.info()?,
@@ -184,60 +179,6 @@ impl<'a> FlashRover<'a> {
                 input.borrow_mut().as_mut(),
             )?,
         }
-
-        Ok(())
-    }
-
-    fn inject(&self) -> Result<()> {
-        let memory = &self.debug_session.memory;
-
-        let fw = create_firmware(self.command.device_kind)?;
-
-        memory
-            .load_raw(0, SRAM_START as _, fw.to_str().unwrap(), 32, false as _)
-            .context(DssError {})?;
-
-        fw.close().context(IoError {})?;
-
-        if let Some(spi_pins) = self.command.spi_pins.as_ref() {
-            memory
-                .write_data(0, CONF_VALID as _, 1, 32)
-                .context(DssError {})?;
-            memory
-                .write_data(0, CONF_SPI_MISO as _, spi_pins[SpiPin::Miso] as _, 32)
-                .context(DssError {})?;
-            memory
-                .write_data(0, CONF_SPI_MOSI as _, spi_pins[SpiPin::Mosi] as _, 32)
-                .context(DssError {})?;
-            memory
-                .write_data(0, CONF_SPI_CLK as _, spi_pins[SpiPin::Clk] as _, 32)
-                .context(DssError {})?;
-            memory
-                .write_data(0, CONF_SPI_CSN as _, spi_pins[SpiPin::Csn] as _, 32)
-                .context(DssError {})?;
-        }
-
-        let stack_addr = memory
-            .read_data(0, STACK_ADDR as _, 32, false as _)
-            .context(DssError {})?;
-        let reset_isr = memory
-            .read_data(0, RESET_ISR as _, 32, false as _)
-            .context(DssError {})?;
-
-        memory
-            .write_register(Register::MSP, stack_addr)
-            .context(DssError {})?;
-        memory
-            .write_register(Register::PC, reset_isr)
-            .context(DssError {})?;
-        memory
-            .write_register(Register::LR, 0xFFFF_FFFF)
-            .context(DssError {})?;
-
-        self.debug_session
-            .target
-            .run_asynch()
-            .context(DssError {})?;
 
         Ok(())
     }
@@ -269,7 +210,10 @@ impl<'a> FlashRover<'a> {
     }
 
     fn read(&self, offset: u32, length: u32, output: &mut dyn Write) -> Result<()> {
-        let data = self.firmware.read_data(offset, length).context(FirmwareError {})?;
+        let data = self
+            .firmware
+            .read_data(offset, length)
+            .context(FirmwareError {})?;
         io::copy(&mut data.as_slice(), output).context(IoError {})?;
 
         Ok(())
@@ -285,10 +229,7 @@ impl<'a> FlashRover<'a> {
     ) -> Result<()> {
         let input_buf: Vec<u8> = if let Some(length) = length {
             let mut vec = Vec::with_capacity(length as _);
-            let read_bytes = input
-                .take(length as _)
-                .read(&mut vec)
-                .context(IoError {})?;
+            let read_bytes = input.take(length as _).read(&mut vec).context(IoError {})?;
             ensure!(read_bytes == length as _, InvalidInputLength {});
             vec
         } else {
@@ -300,38 +241,57 @@ impl<'a> FlashRover<'a> {
         let length = input_buf.len() as u32;
 
         if in_place {
-            self.firmware.write_data(offset, &input_buf).context(FirmwareError {})?;
+            self.firmware
+                .write_data(offset, &input_buf)
+                .context(FirmwareError {})?;
 
             if verify {
-                let read_back = self.firmware.read_data(offset, length).context(FirmwareError {})?;
-                
+                self.reset_into_firmware()?;
+
+                let read_back = self
+                    .firmware
+                    .read_data(offset, length)
+                    .context(FirmwareError {})?;
+
                 ensure!(input_buf.eq(&read_back), VerificationFailed {});
             }
         } else {
             let first_address = offset - offset % firmware::BUF_SIZE;
             let first_length = offset % firmware::BUF_SIZE;
             let last_address = offset + length;
-            let last_length = (firmware::BUF_SIZE - last_address % firmware::BUF_SIZE) % firmware::BUF_SIZE;
+            let last_length =
+                (firmware::BUF_SIZE - last_address % firmware::BUF_SIZE) % firmware::BUF_SIZE;
 
-            let first_sector_part: Vec<u8> = self.firmware
+            let first_sector_part: Vec<u8> = self
+                .firmware
                 .read_data(first_address, first_length)
-                .context(FirmwareError{})?;
-            let last_sector_part: Vec<u8> = self.firmware
+                .context(FirmwareError {})?;
+            let last_sector_part: Vec<u8> = self
+                .firmware
                 .read_data(last_address, last_length)
-                .context(FirmwareError{})?;
+                .context(FirmwareError {})?;
 
             let total_input: Vec<u8> = first_sector_part
                 .into_iter()
-                .chain(input_buf.clone().into_iter())
+                .chain(input_buf.into_iter())
                 .chain(last_sector_part.into_iter())
                 .collect();
             let total_length = total_input.len() as u32;
 
-            self.firmware.sector_erase(first_address, total_length).context(FirmwareError{})?;
-            self.firmware.write_data(first_address, &total_input).context(FirmwareError{})?;
+            self.firmware
+                .sector_erase(first_address, total_length)
+                .context(FirmwareError {})?;
+            self.firmware
+                .write_data(first_address, &total_input)
+                .context(FirmwareError {})?;
 
             if verify {
-                let read_back = self.firmware.read_data(first_address, total_length).context(FirmwareError {})?;
+                self.reset_into_firmware()?;
+
+                let read_back = self
+                    .firmware
+                    .read_data(first_address, total_length)
+                    .context(FirmwareError {})?;
 
                 ensure!(total_input.eq(&read_back), VerificationFailed {});
             }
@@ -353,8 +313,5 @@ impl<'a> Drop for FlashRover<'a> {
             Ok(())
         };
         f().unwrap_or_default();
-        if let Some(ccxml) = self.ccxml.take() {
-            ccxml.close().unwrap_or_default();
-        }
     }
 }

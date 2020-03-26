@@ -151,6 +151,18 @@ impl<'a> Target<'a> {
         Ok(())
     }
 
+    pub fn is_halted(&self) -> Result<bool> {
+        const METHOD: &str = "isHalted";
+        const SIGNATURE: &str = "()Z";
+
+        let ret = self
+            .env
+            .call_method(self.instance, METHOD, SIGNATURE, &[])?
+            .z()?;
+
+        Ok(ret)
+    }
+
     pub fn run_asynch(&self) -> Result<()> {
         const METHOD: &str = "runAsynch";
         const SIGNATURE: &str = "()V";

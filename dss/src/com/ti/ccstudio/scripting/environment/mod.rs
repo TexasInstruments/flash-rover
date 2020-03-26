@@ -57,7 +57,7 @@ impl str::FromStr for TraceLevel {
             "FINER" => Ok(TraceLevel::Finer),
             "FINEST" => Ok(TraceLevel::Finest),
             "ALL" => Ok(TraceLevel::All),
-            _ => Err(format!("Invalid TraceLevel string {}", s).into()),
+            _ => Err(format!("Invalid TraceLevel string {}", s)),
         }
     }
 }

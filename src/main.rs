@@ -19,10 +19,7 @@ use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
 
-use dss::{
-    Dss,
-    com::ti::ccstudio::scripting::environment::TraceLevel,
-};
+use dss::{com::ti::ccstudio::scripting::environment::TraceLevel, Dss};
 
 use snafu::{Backtrace, ErrorCompat, OptionExt, ResultExt, Snafu};
 
@@ -40,19 +37,15 @@ mod flash_rover;
 mod types;
 mod xflash;
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, Snafu)]
 enum Error {
     ArgsError {
         source: args::Error,
-        backtrace: Backtrace,
     },
-    CurrentDirError {
-        backtrace: Backtrace,
-    },
+    CurrentDirError,
     #[snafu(display("Unable to find CCS root"))]
-    NoCCSDir {
-        backtrace: Backtrace,
-    },
+    NoCCSDir,
     DssError {
         source: dss::Error,
         backtrace: Backtrace,

@@ -87,15 +87,23 @@ private:
         static constexpr uint8_t mdid         = 0x90;  // Manufacturer Device ID
         static constexpr uint8_t dp           = 0xB9;  // Power down
         static constexpr uint8_t rdp          = 0xAB;  // Power standby
+        static constexpr uint8_t rsten        = 0x66;  // Reset-Enable
+        static constexpr uint8_t rst          = 0x99;  // Reset
     };
 
     struct StatusCode
     {
-        static constexpr uint8_t SRWD = 0x80;
-        static constexpr uint8_t BP   = 0x0C;
-        static constexpr uint8_t WEL  = 0x02;
-        static constexpr uint8_t BUSY = 0x01;
+        uint8_t wip:1;  // bit0: Write in progress
+        uint8_t wel:1;  // bit1: Write enable latch
+        uint8_t bp0:1;  // bit2: Level of protected block
+        uint8_t bp1:1;  // bit3: Level of protected block
+        uint8_t bp2:1;  // bit4: Level of protected block
+        uint8_t bp3:1;  // bit5: Level of protected block
+        uint8_t qe:1;   // bit6: Quad enabled
+        uint8_t srwd:1; // bit7: Status register write protect
     };
+
+    static_assert(sizeof(StatusCode) == 1);
 
     XflashObj           obj_;
     Power::PeriphHandle gpioPeriph_;
@@ -320,14 +328,75 @@ public:
         return waitReady();
     }
 
+    bool reset()
+    {
+        bool ret;
+
+        ret = waitReady();
+        if (!ret)
+        {
+            return false;
+        }
+
+        const uint8_t rsten_buf[] = { OpCode::rsten };
+        const uint8_t rst_buf[] = { OpCode::rst };
+
+
+        select();
+
+        ret = spi_.write(rsten_buf, sizeof(rsten_buf));
+
+        deselect();
+
+        if (!ret)
+        {
+            return false;
+        }
+
+
+        // Wait for at least 1 us.
+        Xflash::delay(1);
+
+        select();
+
+        ret = spi_.write(rst_buf, sizeof(rst_buf));
+
+        deselect();
+
+        if (!ret)
+        {
+            return false;
+        }
+
+        // Wait for at least 20 ms.
+        Xflash::delay(20 * 1000);
+
+        waitPowerDown();
+
+        ret = powerStandby();
+        if (!ret)
+        {
+            return false;
+        }
+
+        return waitReady();
+    }
+
     void close()
     {
         // Put the part in low power mode
         powerDown();
         waitPowerDown();
+
     }
 
 private:
+    static void delay(uint32_t us)
+    {
+        // ui32Count = [delay in us] * [CPU clock in MHz] / [cycles per loop]
+        CPUdelay((us * 48) / 4);
+    }
+
     void select()
     {
         GPIO_clearDio(obj_.csn);
@@ -419,8 +488,8 @@ private:
         // for a Winond chip-set, once the request to wake up the flash has been
         // send, CS needs to stay high at least 3us (for Winbond part)
         // for chip-set like Macronix, it can take up to 35us.
-        // ui32Count = [delay in us] * [CPU clock in MHz] / [cycles per loop]
-        CPUdelay((35 * 48) / 4);
+        // Sleeping for 100 us should give enough margin.
+        Xflash::delay(100);
 
         return waitReady();
     }
@@ -450,7 +519,10 @@ private:
                 return false;
             }
 
-            if ((rbuf & StatusCode::BUSY) == 0)
+            StatusCode status_code = *reinterpret_cast<StatusCode *>(&rbuf);
+
+            // Xfash is not busy if work-in-progress bit is not set
+            if (status_code.wip == 0)
             {
                 /* Now ready */
                 return true;

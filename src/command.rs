@@ -34,7 +34,7 @@ pub struct Command {
     pub ccs_path: PathBuf,
     pub log_dss: String,
     pub xds_id: String,
-    pub device_kind: Device,
+    pub device: Device,
     pub spi_pins: Option<SpiPins>,
     pub subcommand: Subcommand,
 }

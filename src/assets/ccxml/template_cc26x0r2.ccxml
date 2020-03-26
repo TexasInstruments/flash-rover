@@ -17,7 +17,7 @@
                 </choice>
             </property>
             <platform XML_version="1.2" id="platform_0">
-                <instance XML_version="1.2" desc="CC2640R2F" href="devices/cc2640r2f.xml" id="CC2640R2F" xml="cc2640r2f.xml" xmlpath="devices"/>
+                <instance XML_version="1.2" desc="<<<DEVICE DESC>>>" href="devices/<<<DEVICE XML>>>" id="<<<DEVICE ID>>>" xml="<<<DEVICE XML>>>" xmlpath="devices"/>
             </platform>
         </connection>
     </configuration>

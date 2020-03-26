@@ -181,7 +181,7 @@ impl Xflash {
                 Xflash::Known(maybe_id, _) => &id == maybe_id,
                 _ => false,
             })
-            .map(|x| *x)
+            .copied()
             .unwrap_or(Xflash::Unknown(id))
     }
 }

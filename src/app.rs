@@ -20,7 +20,17 @@ file will be saved and the path will be displayed. If OFF is specified then no l
             .long("log-dss")
             .value_name("LEVEL")
             .default_value("OFF")
-            .possible_values(&["OFF", "SEVERE", "WARNING", "INFO", "CONFIG", "FINE", "FINER", "FINEST", "ALL"]))
+            .possible_values(&[
+                "OFF", 
+                "SEVERE", 
+                "WARNING", 
+                "INFO", 
+                "CONFIG", 
+                "FINE", 
+                "FINER", 
+                "FINEST", 
+                "ALL",
+            ]))
         .arg(Arg::with_name("xds")
             .help("The serial number ID of the XDS110 debugger connected to the device, e.g. L4100847")
             .short("x")
@@ -32,13 +42,31 @@ file will be saved and the path will be displayed. If OFF is specified then no l
             .short("d")
             .long("device")
             .value_name("KIND")
-            .possible_values(&["cc13x0", "cc26x0", "cc26x0r2", "cc13x2_cc26x2"])
+            .possible_values(&[
+                "cc1310", 
+                "cc1312r", 
+                "cc1350", 
+                "cc1352p", 
+                "cc1352r", 
+                "cc2640",
+                "cc2640r2f",
+                "cc2642r",
+                "cc2650",
+                "cc2652p",
+                "cc2652r",
+                "cc2652rb",
+            ])
             .required(true))
         .arg(Arg::with_name("spi-pins")
             .help("Override default SPI DIOs for external flash access, defaults to DIOs used for external flash on LaunchPads [8,9,10,20]")
             .short("s")
             .long("spi-pins")
-            .value_names(&["MISO", "MOSI", "CLK", "CSN"])
+            .value_names(&[
+                "MISO",
+                "MOSI",
+                "CLK",
+                "CSN"
+            ])
             .value_delimiter(",")
             .require_delimiter(true)
             .validator(spi_pins_validate))
