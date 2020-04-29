@@ -4,6 +4,7 @@
 // notice may not be copied, modified, or distributed except according to those terms.
 
 use std::cell::RefCell;
+use std::convert::TryFrom;
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -70,6 +71,10 @@ impl ArgMatches {
         self.0.value_of_lossy(name).map(|s| s.into_owned())
     }
 
+    fn values_of_lossy(&self, name: &str) -> Option<Vec<String>> {
+        self.0.values_of_lossy(name)
+    }
+
     fn is_present(&self, name: &str) -> bool {
         self.0.is_present(name)
     }
@@ -130,7 +135,13 @@ impl Args {
 
     fn spi_pins(&self) -> Result<Option<SpiPins>> {
         const ARG: &str = "spi-pins";
-        let arg = self.matches.parse_of_lossy(ARG)?;
+        let arg = match self.matches.values_of_lossy(ARG) {
+            Some(arg) => Some(SpiPins::try_from(arg).ok().context(ParseArgument {
+                arg: ARG,
+                reason: "Invalid arguments passed",
+            })?),
+            None => None,
+        };
         Ok(arg)
     }
 

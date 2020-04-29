@@ -184,14 +184,14 @@ back the same address range may yield different data than initially written.")
         )
 }
 
-fn spi_pins_validate(dios: String) -> Result<(), String> {
+fn spi_pins_validate(dio: String) -> Result<(), String> {
     type ParsedSpiPin = u8;
 
-    if !dios
-        .split(',')
-        .all(|dio| dio.parse::<ParsedSpiPin>().is_ok())
-    {
-        return Err(String::from("DIO values must be positive integers"));
+    if dio.parse::<ParsedSpiPin>().is_err() {
+        return Err(format!(
+            "Invalid DIO value {}, must be an unsigned 8-bit integer",
+            dio
+        ));
     }
 
     Ok(())

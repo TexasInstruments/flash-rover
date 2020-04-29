@@ -3,6 +3,7 @@
 // (see LICENSE or <https://opensource.org/licenses/BSD-3-Clause>) All files in the project
 // notice may not be copied, modified, or distributed except according to those terms.
 
+use std::convert::TryFrom;
 use std::ops;
 use std::str;
 use std::string;
@@ -13,12 +14,8 @@ use snafu::{Backtrace, OptionExt, Snafu};
 pub enum Error {
     #[snafu(display("Invalid string when parsing Device: {}", input))]
     InvalidDevice { input: String, backtrace: Backtrace },
-    #[snafu(display("Unable to parse SPI pins fom string {}: {}", input, msg))]
-    InvalidSpiPins {
-        input: String,
-        msg: String,
-        backtrace: Backtrace,
-    },
+    #[snafu(display("Unable to parse SPI pins: {}", msg))]
+    InvalidSpiPins { msg: String, backtrace: Backtrace },
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -178,27 +175,28 @@ impl ops::Index<SpiPin> for SpiPins {
     }
 }
 
-impl str::FromStr for SpiPins {
-    type Err = Error;
+impl TryFrom<Vec<String>> for SpiPins {
+    type Error = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut dio_iter = s.split(',').map(|d| {
-            str::parse(d).ok().context(InvalidSpiPins {
-                input: s,
-                msg: "SPI pin value is not an acceptable digit",
-            })
-        });
-        let too_many_pins_context = || InvalidSpiPins {
-            input: s,
-            msg: "expects 4 values",
-        };
-        let dios: [_; 4] = [
-            dio_iter.next().with_context(too_many_pins_context)??,
-            dio_iter.next().with_context(too_many_pins_context)??,
-            dio_iter.next().with_context(too_many_pins_context)??,
-            dio_iter.next().with_context(too_many_pins_context)??,
-        ];
-        ensure!(dio_iter.next().is_none(), too_many_pins_context());
+    fn try_from(s: Vec<String>) -> Result<Self, Self::Error> {
+        let dios: Vec<_> = s
+            .into_iter()
+            .map(|dio| dio.parse())
+            .collect::<Result<_, _>>()
+            .ok()
+            .context(InvalidSpiPins {
+                msg: "SPI pin values contain invalid values",
+            })?;
+
+        ensure!(
+            dios.len() == 4,
+            InvalidSpiPins {
+                msg: format!("SPI pins must be 4 values, got: {}", dios.len())
+            }
+        );
+
+        let dios: [_; 4] = [dios[0], dios[1], dios[2], dios[3]];
+
         Ok(Self(dios))
     }
 }
