@@ -133,9 +133,10 @@ impl<'a> Target<'a> {
         const METHOD: &str = "reset";
         const SIGNATURE: &str = "()V";
 
-        self.env
-            .call_method(self.instance, METHOD, SIGNATURE, &[])?
-            .v()?;
+        // TODO: Figure why reset cause Java exception on 1M devices.
+        //self.env
+        //    .call_method(self.instance, METHOD, SIGNATURE, &[])?
+        //    .v()?;
 
         Ok(())
     }

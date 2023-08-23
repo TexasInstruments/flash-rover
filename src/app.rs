@@ -55,6 +55,12 @@ file will be saved and the path will be displayed. If OFF is specified then no l
                 "cc2652p",
                 "cc2652r",
                 "cc2652rb",
+                "cc1312r7",
+                "cc1352p7",
+                "cc2652p7",
+                "cc2652r7",
+                "cc1354p10",
+                "cc1314r10"
             ])
             .required(true))
         .arg(Arg::with_name("spi-pins")

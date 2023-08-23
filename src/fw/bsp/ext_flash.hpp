@@ -68,7 +68,11 @@ struct XflashObj
 };
 
 constexpr const XflashObj defaultXflashObj = {
+#ifdef DeviceFamily_CC13X4
+    IOID_38,  /* csn on CC1354P10 launchpads */
+#else
     IOID_20,  /* csn */
+#endif
 };
 
 class Xflash

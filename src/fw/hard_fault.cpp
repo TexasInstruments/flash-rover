@@ -57,7 +57,11 @@ void openHardFaultDebugger(RegDump_t& regDump)
     memset(&regDump, 0, sizeof(RegDump_t));
     pRegDump = &regDump;
 
+    #ifdef DeviceFamily_CC13X4
+    HWREG(CPU_ICB_BASE + CPU_ICB_O_ACTLR) = CPU_ICB_ACTLR_DISOOFP_S;
+    #else
     HWREG(CPU_SCS_BASE + CPU_SCS_O_ACTLR) = CPU_SCS_ACTLR_DISDEFWBUF;
+    #endif
 
     IntRegister(INT_HARD_FAULT, hardFaultIsr);
 }
