@@ -47,6 +47,14 @@ The following TI devices are supported:
     * [CC2652P]
     * [CC2652R]
     * [CC2652RB]
+* **CC13x2x7/CC26x2x7**
+    * [CC1312R7]
+    * [CC1352P7]
+    * [CC2652P7]
+    * [CC2652R7]
+* **CC13x4/CC26x4**
+    * [CC1314R10]
+    * [CC1354P10]
 
 The following hardware requirements for both TI development boards and custom
 boards are:
@@ -75,7 +83,7 @@ $ cd flash-rover
 $ ls
 flash-rover  ti-xflash
 $ ./flash-rover --version
-flash-rover 0.3.0
+flash-rover 0.3.3
 ```
 
 If you want to, you can add the `<CCS_ROOT>/utils/flash-rover/` path to the
@@ -165,7 +173,7 @@ the external flash via SPI.
 ## Building
 
 It is recommended for customers to download the pre-compiled executable from the
-[Releases page](https://github.com/ti-simplelink/flash-rover/releases) rather
+[Releases page](https://github.com/TexasInstruments/flash-rover/releases) rather
 than building from source.
 
 The CLI is written in Rust and the device firmware is written in C++. Building
@@ -207,3 +215,9 @@ You must then copy the `flash-rover/` folder under `output/` to the
 [CC2652P]:   http://www.ti.com/product/CC2652P
 [CC2652R]:   http://www.ti.com/product/CC2652R
 [CC2652RB]:  http://www.ti.com/product/CC2652RB
+[CC1312R7]:  https://www.ti.com/product/CC1312R7
+[CC1352P7]:  https://www.ti.com/product/CC1352P7
+[CC2652P7]:  https://www.ti.com/product/CC2652P7
+[CC2652R7]:  https://www.ti.com/product/CC2652R7
+[CC1314R10]:  https://www.ti.com/product/CC1314R10
+[CC1354P10]:  https://www.ti.com/product/CC1354P10
