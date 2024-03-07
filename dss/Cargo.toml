@@ -9,5 +9,5 @@ path-clean = "0.1"
 path-slash = "0.1"
 
 [dependencies.jni]
-version = "0.16"
+version = "0.19"
 features = ["invocation"]

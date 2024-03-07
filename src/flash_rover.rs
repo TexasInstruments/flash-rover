@@ -55,7 +55,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 const DEBUG_SERVER_NAME: &str = "DebugServer.1";
 const SCRIPT_TIMEOUT: Duration = Duration::from_secs(15);
-const SESSION_PATTERN: &str = "Texas Instruments XDS110 USB Debug Probe/Cortex_M(3|4)_0";
+const SESSION_PATTERN: &str = "Texas Instruments XDS110 USB Debug Probe/Cortex_M(3|4|33)_0";
 
 fn create_ccxml(xds: &str, device: Device) -> Result<TempPath> {
     let asset = assets::get_ccxml_template(device)

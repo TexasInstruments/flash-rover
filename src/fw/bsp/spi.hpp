@@ -13,7 +13,11 @@
 
 #include <ti/devices/DeviceFamily.h>
 #include DeviceFamily_constructPath(driverlib/ioc.h)
+#ifdef DeviceFamily_CC13X4
+#include DeviceFamily_constructPath(driverlib/spi.h)
+#else
 #include DeviceFamily_constructPath(driverlib/ssi.h)
+#endif
 #include DeviceFamily_constructPath(inc/hw_memmap.h)
 
 namespace bsp {
@@ -33,6 +37,18 @@ struct SpiObj
     SpiPins pins{};
 };
 
+#ifdef DeviceFamily_CC13X4
+constexpr const SpiObj defaultSpiObj = {
+    Power::Periph::Ssi0,  /* periph */
+    SPI0_BASE,            /* base */
+    {                     /* pins */
+         IOID_37,         /* poci */
+         IOID_36,         /* pico */
+         IOID_39,         /* clk */
+         IOID_UNUSED,     /* csn */
+    },
+};
+#else
 constexpr const SpiObj defaultSpiObj = {
     Power::Periph::Ssi0,  /* periph */
     SSI0_BASE,            /* base */
@@ -43,6 +59,7 @@ constexpr const SpiObj defaultSpiObj = {
          IOID_UNUSED,     /* csn */
     },
 };
+#endif
 
 class Spi
 {
@@ -55,6 +72,24 @@ public:
         : obj_{ obj }
         , periph_{ power.openPeriph(obj_.periph) }
     {
+        #ifdef DeviceFamily_CC13X4
+        SPIIntDisable(obj_.base, SPI_MIS_RXFIFO_OVF_SET | SPI_MIS_PER_SET | SPI_MIS_TX_SET | SPI_MIS_RTOUT_SET);
+        SPIIntClear(obj_.base, SPI_MIS_RXFIFO_OVF_SET | SPI_MIS_PER_SET);
+        SPIConfigSetExpClk(obj_.base,
+            48000000,             /* CPU rate */
+            SPI_FRF_MOTO_MODE_0,  /* frame format */
+            SPI_MODE_CONTROLLER,  /* mode */
+            4000000,              /* bit rate */
+            8                     /* data size */
+        );
+        IOCPinTypeSpiMaster(obj_.base,
+            obj_.pins.miso,
+            obj_.pins.mosi,
+            obj_.pins.csn,
+            obj_.pins.clk
+        );
+        SPIEnable(obj_.base);
+        #else
         SSIIntDisable(obj_.base, SSI_RXOR | SSI_RXFF | SSI_RXTO | SSI_TXFF);
         SSIIntClear(obj_.base, SSI_RXOR | SSI_RXTO);
         SSIConfigSetExpClk(obj_.base,
@@ -71,7 +106,7 @@ public:
             obj_.pins.clk
         );
         SSIEnable(obj_.base);
-
+        #endif
         // Get read of residual data from SSI port
         flush();
     }
@@ -84,6 +119,16 @@ public:
     {
         while (len > 0)
         {
+            #ifdef DeviceFamily_CC13X4
+            if (!SPIDataPutNonBlocking(obj_.base, 0))
+            {
+                /* Error */
+                return false;
+            }
+
+            uint32_t ul;
+            SPIDataGet(obj_.base, &ul);
+            #else
             if (!SSIDataPutNonBlocking(obj_.base, 0))
             {
                 /* Error */
@@ -92,6 +137,8 @@ public:
 
             uint32_t ul;
             SSIDataGet(obj_.base, &ul);
+            #endif
+
             *buf++ = (uint8_t)ul;
 
             len--;
@@ -104,10 +151,17 @@ public:
     {
         while (len > 0)
         {
+            #ifdef DeviceFamily_CC13X4
+            SPIDataPut(obj_.base, *buf++);
+
+            uint32_t dummy;
+            SPIDataGet(obj_.base, &dummy);
+            #else
             SSIDataPut(obj_.base, *buf++);
 
             uint32_t dummy;
             SSIDataGet(obj_.base, &dummy);
+            #endif
 
             len--;
         }
@@ -118,7 +172,12 @@ public:
     void flush()
     {
         uint32_t dummy;
+
+        #ifdef DeviceFamily_CC13X4
+        while (SPIDataGetNonBlocking(obj_.base, &dummy));
+        #else
         while (SSIDataGetNonBlocking(obj_.base, &dummy));
+        #endif
     }
 };
 

@@ -35,6 +35,12 @@ pub enum Device {
     CC2652P,
     CC2652R,
     CC2652RB,
+    CC1312R7,
+    CC1352P7,
+    CC2652P7,
+    CC2652R7,
+    CC1354P10,
+    CC1314R10,
 }
 
 impl Device {
@@ -54,6 +60,12 @@ impl Device {
             CC2652P => "CC2652P1F",
             CC2652R => "CC2652R1F",
             CC2652RB => "CC2652RB1F",
+            CC1312R7 => "CC1312R7",
+            CC1352P7 => "CC1352P7",
+            CC2652P7 => "CC2652P7",
+            CC2652R7 => "CC2652R7",
+            CC1354P10 => "CC1354P10",
+            CC1314R10 => "CC1314R10",
         }
     }
 
@@ -78,6 +90,12 @@ impl Device {
             CC2652P => "cc2652p1f.xml",
             CC2652R => "cc2652r1f.xml",
             CC2652RB => "cc2652rb1f.xml",
+            CC1312R7 => "cc1312r7.xml",
+            CC1352P7 => "cc1352p7.xml",
+            CC2652P7 => "cc2652p7.xml",
+            CC2652R7 => "cc2652r7.xml",
+            CC1354P10 => "cc1354p10.xml",
+            CC1314R10 => "cc1314r10.xml",
         }
     }
 }
@@ -99,6 +117,12 @@ impl string::ToString for Device {
             CC2652P => "cc2652p",
             CC2652R => "cc2652r",
             CC2652RB => "cc2652rb",
+            CC1312R7 => "cc1312r7",
+            CC1352P7 => "cc1352p7",
+            CC2652P7 => "cc2652p7",
+            CC2652R7 => "cc2652r7",
+            CC1354P10 => "cc1354p10",
+            CC1314R10 => "cc1314r10",
         }
         .to_string()
     }
@@ -123,6 +147,12 @@ impl str::FromStr for Device {
             "cc2652p" => Ok(CC2652P),
             "cc2652r" => Ok(CC2652R),
             "cc2652rb" => Ok(CC2652RB),
+            "cc1312r7" => Ok(CC1312R7),
+            "cc1352p7" => Ok(CC1352P7),
+            "cc2652p7" => Ok(CC2652P7),
+            "cc2652r7" => Ok(CC2652R7),
+            "cc1354p10" => Ok(CC1354P10),
+            "cc1314r10" => Ok(CC1314R10),
             input => InvalidDevice { input }.fail(),
         }
     }
@@ -135,6 +165,8 @@ pub enum DeviceFamily {
     CC26x0,
     CC26x0R2,
     CC13x2_CC26x2,
+    CC13x2x7_CC26x2x7,
+    CC13x4_CC26x4,
 }
 
 impl From<Device> for DeviceFamily {
@@ -147,6 +179,8 @@ impl From<Device> for DeviceFamily {
             CC2640 | CC2650 => CC26x0,
             CC2640R2F => CC26x0R2,
             CC1312R | CC1352P | CC1352R | CC2642R | CC2652P | CC2652R | CC2652RB => CC13x2_CC26x2,
+            CC1312R7 | CC1352P7 | CC2652P7 | CC2652R7 => CC13x2x7_CC26x2x7,
+            CC1354P10 | CC1314R10 => CC13x4_CC26x4,
         }
     }
 }

@@ -105,6 +105,27 @@ public:
         None,
     };
 #endif
+#if DeviceFamily_PARENT == DeviceFamily_PARENT_CC13X4_CC26X3_CC26X4
+    enum class Periph : uint32_t
+    {
+        Timer0 = PRCM_PERIPH_TIMER0,
+        Timer1 = PRCM_PERIPH_TIMER1,
+        Timer2 = PRCM_PERIPH_TIMER2,
+        Timer3 = PRCM_PERIPH_TIMER3,
+        Ssi0   = PRCM_PERIPH_SSI0,
+        Ssi1   = PRCM_PERIPH_SSI1,
+        Uart0  = PRCM_PERIPH_UART0,
+        Uart1  = PRCM_PERIPH_UART1,
+        I2c0   = PRCM_PERIPH_I2C0,
+        Crypto = PRCM_PERIPH_CRYPTO,
+        Trng   = PRCM_PERIPH_TRNG,
+        Pka    = PRCM_PERIPH_PKA,
+        Udma   = PRCM_PERIPH_UDMA,
+        Gpio   = PRCM_PERIPH_GPIO,
+        I2s    = PRCM_PERIPH_I2S,
+        None,
+    };
+#endif
 
     class DomainHandle
     {
@@ -208,6 +229,27 @@ private:
         default:             return Domain::None;
         }
 #endif
+#if DeviceFamily_PARENT == DeviceFamily_PARENT_CC13X4_CC26X3_CC26X4
+        switch (periph)
+        {
+        case Periph::Timer0: return Domain::Periph;
+        case Periph::Timer1: return Domain::Periph;
+        case Periph::Timer2: return Domain::Periph;
+        case Periph::Timer3: return Domain::Periph;
+        case Periph::Ssi0:   return Domain::Serial;
+        case Periph::Ssi1:   return Domain::Periph;
+        case Periph::Uart0:  return Domain::Serial;
+        case Periph::Uart1:  return Domain::Periph;
+        case Periph::I2c0:   return Domain::Serial;
+        case Periph::Crypto: return Domain::Periph;
+        case Periph::Trng:   return Domain::Periph;
+        case Periph::Pka:    return Domain::Periph;
+        case Periph::Udma:   return Domain::Periph;
+        case Periph::Gpio:   return Domain::Periph;
+        case Periph::I2s:    return Domain::Periph;
+        default:             return Domain::None;
+        }
+#endif
     }
 
     dep_count_t* getDepCount(Domain domain)
@@ -266,6 +308,27 @@ private:
         default:             return nullptr;
         }
 #endif
+#if DeviceFamily_PARENT == DeviceFamily_PARENT_CC13X4_CC26X3_CC26X4
+        switch (periph)
+        {
+        case Periph::Timer0: return &counts_.periphs.timer0;
+        case Periph::Timer1: return &counts_.periphs.timer1;
+        case Periph::Timer2: return &counts_.periphs.timer2;
+        case Periph::Timer3: return &counts_.periphs.timer3;
+        case Periph::Ssi0:   return &counts_.periphs.ssi0;
+        case Periph::Ssi1:   return &counts_.periphs.ssi1;
+        case Periph::Uart0:  return &counts_.periphs.uart0;
+        case Periph::Uart1:  return &counts_.periphs.uart1;
+        case Periph::I2c0:   return &counts_.periphs.i2c0;
+        case Periph::Crypto: return &counts_.periphs.crypto;
+        case Periph::Trng:   return &counts_.periphs.trng;
+        case Periph::Pka:    return &counts_.periphs.pka;
+        case Periph::Udma:   return &counts_.periphs.udma;
+        case Periph::Gpio:   return &counts_.periphs.gpio;
+        case Periph::I2s:    return &counts_.periphs.i2s;
+        default:             return nullptr;
+        }
+#endif
     }
 
     void setDependency(Domain domain)
@@ -288,7 +351,8 @@ private:
         {
             uint32_t u32domain = static_cast<uint32_t>(domain);
             PRCMPowerDomainOn(u32domain);
-            while (PRCMPowerDomainStatus(u32domain) != PRCM_DOMAIN_POWER_ON);
+
+            while (PRCMPowerDomainsAllOn(u32domain) != PRCM_DOMAIN_POWER_ON);
         }
     }
 
@@ -312,7 +376,7 @@ private:
         {
             uint32_t u32domain = static_cast<uint32_t>(domain);
             PRCMPowerDomainOff(u32domain);
-            while (PRCMPowerDomainStatus(u32domain) != PRCM_DOMAIN_POWER_OFF);
+            while (PRCMPowerDomainsAllOff(u32domain) != PRCM_DOMAIN_POWER_OFF);
         }
     }
 
