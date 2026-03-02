@@ -29,7 +29,10 @@ else
 fi
 
 PROJECTSPECS=$(ls "${FW_DIR}"/gcc/cc13x0-cc26x0/*.projectspec \
-                  "${FW_DIR}"/gcc/cc13x2-cc26x2/*.projectspec | \
+                  "${FW_DIR}"/gcc/cc13x1-cc26x1/*.projectspec \
+                  "${FW_DIR}"/gcc/cc13x2-cc26x2/*.projectspec \
+                  "${FW_DIR}"/gcc/cc13x2x7-cc26x2x7/*.projectspec \
+                  "${FW_DIR}"/gcc/cc13x4-cc26x4/*.projectspec | \
                sed 's/^/-ccs.location /')
 
 ccs_import() {

@@ -39,6 +39,8 @@ The following TI devices are supported:
     * [CC2650]
 * **CC26x0R2**:
     * [CC2640R2F]
+* **CC13x1/CC26x1**:
+    * [CC1311P3]
 * **CC13x2/CC26x2**:
     * [CC1312R]
     * [CC1352P]
@@ -204,6 +206,7 @@ You must then copy the `flash-rover/` folder under `output/` to the
 [DSS]:       http://dev.ti.com/tirex/explore/node?node=AO6UKsAhivhxn6EDOzuszQ__FUz-xrs__LATEST
 [CCS]:       http://www.ti.com/tool/CCSTUDIO
 [CC1310]:    http://www.ti.com/product/CC1310
+[CC1311P3]:  https://www.ti.com/product/CC1311P3
 [CC1312R]:   http://www.ti.com/product/CC1312R
 [CC1350]:    http://www.ti.com/product/CC1350
 [CC1352P]:   http://www.ti.com/product/CC1352P

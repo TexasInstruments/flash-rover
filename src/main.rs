@@ -106,14 +106,16 @@ fn run() -> Result<()> {
 }
 
 fn get_ccs_root() -> Option<PathBuf> {
-    if cfg!(debug_assertions) {
-        env::var_os("CCS_ROOT").map(Into::into)
-    } else {
-        // Find <SDK> in ancestors where <SDK>/ccs_base and <SDK>/eclipse exists
-        let current_dir: PathBuf = env::current_exe().ok()?.parent()?.into();
-        current_dir
-            .ancestors()
-            .find(|p| p.join("ccs_base").exists() && p.join("eclipse").exists())
-            .map(Into::into)
+    // First check CCS_ROOT environment variable
+    if let Some(ccs_root) = env::var_os("CCS_ROOT") {
+        return Some(ccs_root.into());
     }
+
+    // Fall back to finding CCS in ancestors of executable
+    // Find <SDK> in ancestors where <SDK>/ccs_base and <SDK>/eclipse exists
+    let current_dir: PathBuf = env::current_exe().ok()?.parent()?.into();
+    current_dir
+        .ancestors()
+        .find(|p| p.join("ccs_base").exists() && p.join("eclipse").exists())
+        .map(Into::into)
 }

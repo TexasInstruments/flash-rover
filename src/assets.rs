@@ -21,6 +21,7 @@ pub fn get_ccxml_template(device: Device) -> Option<Cow<'static, [u8]>> {
     let device_family: DeviceFamily = From::from(device);
     let file = match device_family {
         CC13x0 => "template_cc13x0.ccxml",
+        CC13x1_CC26x1 => "template_cc13x1_cc26x1.ccxml",
         CC26x0 => "template_cc26x0.ccxml",
         CC26x0R2 => "template_cc26x0r2.ccxml",
         CC13x2_CC26x2 | CC13x2x7_CC26x2x7 => "template_cc13x2_cc26x2.ccxml",
@@ -37,6 +38,7 @@ pub fn get_firmware(device: Device) -> Option<Cow<'static, [u8]>> {
     let device_family: DeviceFamily = From::from(device);
     let file = match device_family {
         CC13x0 => "cc13x0.bin",
+        CC13x1_CC26x1 => "cc13x1_cc26x1.bin",
         CC26x0 => "cc26x0.bin",
         CC26x0R2 => "cc26x0r2.bin",
         CC13x2_CC26x2 => "cc13x2_cc26x2.bin",
