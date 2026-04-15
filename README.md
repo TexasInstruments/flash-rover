@@ -92,6 +92,40 @@ If you want to, you can add the `<CCS_ROOT>/utils/flash-rover/` path to the
 environment `PATH` variable in order to invoke flash-rover from any context, or
 `cd` into the directory of the executable.
 
+#### Setting CCS_ROOT (Linux, macOS and Windows)
+
+The launcher scripts automatically search for CCS in common installation paths.
+If your CCS installation is not found, set the `CCS_ROOT` environment variable
+to the path of your CCS installation.
+
+**Linux / macOS** — set for the current session:
+
+```bash
+$ export CCS_ROOT=~/ti/ccs2020/ccs
+$ ./flash-rover --version
+```
+
+To make this permanent, add the export to your shell profile:
+
+```bash
+$ echo 'export CCS_ROOT=~/ti/ccs2020/ccs' >> ~/.bashrc
+$ source ~/.bashrc
+```
+
+**Windows** — set for the current session in Command Prompt:
+
+```bat
+> set CCS_ROOT=C:\ti\ccs2020\ccs
+> flash-rover.bat --version
+```
+
+To make this permanent, set it as a user environment variable via
+*System Properties > Environment Variables* and add `CCS_ROOT` pointing to
+your CCS installation folder (for example `C:\ti\ccs2020\ccs`).
+
+When `CCS_ROOT` is set, *flash-rover* does not need to be placed inside the
+CCS directory and can be run from any location.
+
 Refer to the help menu of the executable for documentation on the CLI and the
 different subcommands:
 

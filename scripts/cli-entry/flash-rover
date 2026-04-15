@@ -7,24 +7,28 @@
 
 CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-# Try to find CCS installation
-# Add your CCS installation path(s) here if not using standard locations
-CCS_PATHS=(
-    # Example: "/home/username/ti/ccs1281/ccs"
-    # Example: "/Applications/ti/ccs1281/ccs"
-    "/opt/ti/ccs"
-)
-
-for CCS_CANDIDATE in "${CCS_PATHS[@]}"; do
-    if [ -d "$CCS_CANDIDATE" ]; then
-        CCS_ROOT="$CCS_CANDIDATE"
-        break
-    fi
-done
+# Use CCS_ROOT if already set in the environment
+if [ -z "$CCS_ROOT" ]; then
+    # Search common CCS installation locations
+    # Glob patterns cover versioned installs like ~/ti/ccs1281/ccs, ~/ti/ccs2020/ccs, and so on
+    for CCS_CANDIDATE in \
+        /opt/ti/ccs \
+        "${HOME}"/ti/ccs/ccs \
+        "${HOME}"/ti/ccs*/ccs \
+        /Applications/ti/ccs*/ccs \
+        /opt/ti/ccs*/ccs
+    do
+        if [ -d "$CCS_CANDIDATE" ]; then
+            CCS_ROOT="$CCS_CANDIDATE"
+            break
+        fi
+    done
+fi
 
 if [ -z "$CCS_ROOT" ]; then
     echo "ERROR: Could not find CCS installation"
-    echo "Please set CCS_ROOT environment variable"
+    echo "Please set the CCS_ROOT environment variable to your CCS install path"
+    echo "Example: export CCS_ROOT=\${HOME}/ti/ccs2020/ccs"
     exit 1
 fi
 
