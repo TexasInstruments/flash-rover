@@ -24,6 +24,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(Copy, Clone, Debug)]
 pub enum Device {
     CC1310,
+    CC1311P3,
     CC1312R,
     CC1350,
     CC1352P,
@@ -49,6 +50,7 @@ impl Device {
 
         match self {
             CC1310 => "CC1310F128",
+            CC1311P3 => "CC1311P3",
             CC1312R => "CC1312R1F3",
             CC1350 => "CC1350F128",
             CC1352P => "CC1352P1F3",
@@ -79,6 +81,7 @@ impl Device {
 
         match self {
             CC1310 => "cc1310f128.xml",
+            CC1311P3 => "cc1311p3.xml",
             CC1312R => "cc1312r1f3.xml",
             CC1350 => "cc1350f128.xml",
             CC1352P => "cc1352p1f3.xml",
@@ -106,6 +109,7 @@ impl string::ToString for Device {
 
         match self {
             CC1310 => "cc1310",
+            CC1311P3 => "cc1311p3",
             CC1312R => "cc1312r",
             CC1350 => "cc1350",
             CC1352P => "cc1352p",
@@ -136,6 +140,7 @@ impl str::FromStr for Device {
 
         match s {
             "cc1310" => Ok(CC1310),
+            "cc1311p3" => Ok(CC1311P3),
             "cc1312r" => Ok(CC1312R),
             "cc1350" => Ok(CC1350),
             "cc1352p" => Ok(CC1352P),
@@ -162,6 +167,7 @@ impl str::FromStr for Device {
 #[derive(Copy, Clone, Debug)]
 pub enum DeviceFamily {
     CC13x0,
+    CC13x1_CC26x1,
     CC26x0,
     CC26x0R2,
     CC13x2_CC26x2,
@@ -176,6 +182,7 @@ impl From<Device> for DeviceFamily {
 
         match device {
             CC1310 | CC1350 => CC13x0,
+            CC1311P3 => CC13x1_CC26x1,
             CC2640 | CC2650 => CC26x0,
             CC2640R2F => CC26x0R2,
             CC1312R | CC1352P | CC1352R | CC2642R | CC2652P | CC2652R | CC2652RB => CC13x2_CC26x2,

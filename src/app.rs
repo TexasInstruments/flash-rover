@@ -43,11 +43,12 @@ file will be saved and the path will be displayed. If OFF is specified then no l
             .long("device")
             .value_name("KIND")
             .possible_values(&[
-                "cc1310", 
-                "cc1312r", 
-                "cc1350", 
-                "cc1352p", 
-                "cc1352r", 
+                "cc1310",
+                "cc1311p3",
+                "cc1312r",
+                "cc1350",
+                "cc1352p",
+                "cc1352r",
                 "cc2640",
                 "cc2640r2f",
                 "cc2642r",
