@@ -13,7 +13,7 @@ on the TI device is also left untouched while *flash-rover* is accessing the
 external flash, meaning no need to manually flash the TI device with some
 firmware. *flash-rover* supports Windows, Linux and macOS, with binary downloads
 available for [every
-release](https://github.com/ti-simplelink/flash-rover/releases).
+release](https://github.com/TexasInstruments/flash-rover/releases).
 
 Released under BSD-3-Clause license.
 
@@ -74,7 +74,7 @@ functionally compatible, will most likely work with *flash-rover*.
 ## Usage
 
 Download the correct zip folder for your operating system from the [Releases
-page](https://github.com/ti-simplelink/flash-rover/releases) and extract the zip
+page](https://github.com/TexasInstruments/flash-rover/releases) and extract the zip
 folder under the `<CCS_ROOT>/utils/` folder, where `<CCS_ROOT>` is your locally
 installed [CCS].
 
@@ -189,7 +189,7 @@ Development Kit (JDK) installed, and the `JAVA_HOME` environment variable must
 point to the location of the installed JDK.
 
 ```bash
-$ git clone https://github.com/ti-simplelink/flash-rover
+$ git clone https://github.com/TexasInstruments/flash-rover
 $ cd flash-rover
 $ export JAVA_HOME=/path/to/installed/jdk
 $ cargo build --release
