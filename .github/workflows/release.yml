@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary: ti-xflash
+            launcher: scripts/cli-entry/flash-rover
+            archive: flash-rover-linux-x86_64.tar.gz
+
+          - os: macos-latest
+            binary: ti-xflash
+            launcher: scripts/cli-entry/flash-rover
+            archive: flash-rover-macos-x86_64.tar.gz
+
+          - os: windows-latest
+            binary: ti-xflash.exe
+            launcher: scripts/cli-entry/flash-rover.bat
+            archive: flash-rover-windows-x86_64.zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Package (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp target/release/${{ matrix.binary }} dist/
+          cp ${{ matrix.launcher }} dist/flash-rover
+          chmod +x dist/flash-rover dist/${{ matrix.binary }}
+          tar -czf ${{ matrix.archive }} -C dist .
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target/release/${{ matrix.binary }} dist/
+          Copy-Item ${{ matrix.launcher }} dist/flash-rover.bat
+          Compress-Archive -Path dist/* -DestinationPath ${{ matrix.archive }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive }}
+          path: ${{ matrix.archive }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            flash-rover-linux-x86_64.tar.gz
+            flash-rover-macos-x86_64.tar.gz
+            flash-rover-windows-x86_64.zip
+          generate_release_notes: true
