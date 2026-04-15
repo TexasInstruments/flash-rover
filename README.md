@@ -1,7 +1,7 @@
 
 # flash-rover
 
-# Moved from https://github.com/ti-simplelink/flash-rover
+> Moved from https://github.com/ti-simplelink/flash-rover
 <p align="center">
     <img width="200" alt="flash-rover logo" src="icon.png">
 </p>
@@ -49,12 +49,12 @@ The following TI devices are supported:
     * [CC2652P]
     * [CC2652R]
     * [CC2652RB]
-* **CC13x2x7/CC26x2x7**
+* **CC13x2x7/CC26x2x7**:
     * [CC1312R7]
     * [CC1352P7]
     * [CC2652P7]
     * [CC2652R7]
-* **CC13x4/CC26x4**
+* **CC13x4/CC26x4**:
     * [CC1314R10]
     * [CC1354P10]
 
@@ -65,7 +65,7 @@ boards are:
 
 Currently known supported external flash hardware are:
 * Macronix MX25R
-* WinBond W25X 
+* WinBond W25X
 
 Note that other external flash hardware which are not listed above, but are
 functionally compatible, will most likely work with *flash-rover*.
@@ -85,14 +85,14 @@ $ cd flash-rover
 $ ls
 flash-rover  ti-xflash
 $ ./flash-rover --version
-flash-rover 0.3.3
+flash-rover <VERSION>
 ```
 
 If you want to, you can add the `<CCS_ROOT>/utils/flash-rover/` path to the
 environment `PATH` variable in order to invoke flash-rover from any context, or
 `cd` into the directory of the executable.
 
-#### Setting CCS_ROOT (Linux, macOS and Windows)
+### Setting CCS_ROOT (Linux, macOS and Windows)
 
 The launcher scripts automatically search for CCS in common installation paths.
 If your CCS installation is not found, set the `CCS_ROOT` environment variable
@@ -135,11 +135,10 @@ $ flash-rover help write
 $ flash-rover write --help
 ```
 
-Note that it is required that *flash-rover* is placed and called from
-`<CCS_ROOT>/utils/flash-rover/` folder in order to properly work, where
-`<CCS_ROOT>` contains the `ccs_base/` folder. This is because some environment
-variables are required to be setup before invoking the executable, which is done
-by the startup script.
+Note that by default *flash-rover* expects to be placed under
+`<CCS_ROOT>/utils/flash-rover/` so the launcher script can locate the CCS
+installation automatically. If CCS is installed in a non-standard location, set
+`CCS_ROOT` as described above and *flash-rover* can be run from any directory.
 
 
 ### Examples
@@ -215,10 +214,10 @@ than building from source.
 The CLI is written in Rust and the device firmware is written in C++. Building
 the CLI requires in general the latest stable release of the Rust compiler. See
 [rustup] on how to install Rust. There already exists pre-compiled binaries of
-the device firmware under `xflash/src/assets/fw`, however, building the device
+the device firmware under `src/assets/fw`, however, building the device
 firmware requires CCS version 9.0 or later.
 
-In order to build *flash-rover* from source you will have to have Jave
+In order to build *flash-rover* from source you will have to have Java
 Development Kit (JDK) installed, and the `JAVA_HOME` environment variable must
 point to the location of the installed JDK.
 
