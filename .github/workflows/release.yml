@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary: ti-xflash
+            launcher: scripts/cli-entry/flash-rover
+            suffix: linux-x86_64.tar.gz
+
+          - os: macos-latest
+            binary: ti-xflash
+            launcher: scripts/cli-entry/flash-rover
+            suffix: macos-x86_64.tar.gz
+
+          - os: windows-latest
+            binary: ti-xflash.exe
+            launcher: scripts/cli-entry/flash-rover.bat
+            suffix: windows-x86_64.zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          awk -v ver="${VERSION}" '
+            /^\[package\]/{in_pkg=1}
+            /^\[/ && !/^\[package\]/{in_pkg=0}
+            in_pkg && /^version = /{print "version = \"" ver "\""; next}
+            {print}
+          ' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Package (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: |
+          ARCHIVE="flash-rover-${{ env.VERSION }}-${{ matrix.suffix }}"
+          mkdir -p dist/flash-rover
+          cp target/release/${{ matrix.binary }} dist/flash-rover/
+          cp ${{ matrix.launcher }} dist/flash-rover/flash-rover
+          chmod +x dist/flash-rover/flash-rover dist/flash-rover/${{ matrix.binary }}
+          tar -czf "${ARCHIVE}" -C dist flash-rover/
+          echo "ARCHIVE=${ARCHIVE}" >> $GITHUB_ENV
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = "flash-rover-${{ env.VERSION }}-${{ matrix.suffix }}"
+          New-Item -ItemType Directory -Force -Path dist/flash-rover
+          Copy-Item target/release/${{ matrix.binary }} dist/flash-rover/
+          Copy-Item ${{ matrix.launcher }} dist/flash-rover/flash-rover.bat
+          Compress-Archive -Path dist/flash-rover -DestinationPath $archive
+          echo "ARCHIVE=$archive" >> $env:GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flash-rover-${{ env.VERSION }}-${{ matrix.suffix }}
+          path: flash-rover-${{ env.VERSION }}-${{ matrix.suffix }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Set version from tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            flash-rover-${{ env.VERSION }}-linux-x86_64.tar.gz
+            flash-rover-${{ env.VERSION }}-macos-x86_64.tar.gz
+            flash-rover-${{ env.VERSION }}-windows-x86_64.zip
+          generate_release_notes: true

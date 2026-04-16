@@ -6,26 +6,53 @@
 # notice may not be copied, modified, or distributed except according to those terms.
 
 CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-CCS_ROOT=${CURR_DIR}/../..
 
-UNAME_OUT="$(uname -s)"
+# Use CCS_ROOT if already set in the environment
+if [ -z "$CCS_ROOT" ]; then
+    # Search common CCS installation locations
+    # Glob patterns cover versioned installs like ~/ti/ccs1281/ccs, ~/ti/ccs2020/ccs, and so on
+    for CCS_CANDIDATE in \
+        /opt/ti/ccs \
+        "${HOME}"/ti/ccs/ccs \
+        "${HOME}"/ti/ccs*/ccs \
+        /Applications/ti/ccs*/ccs \
+        /opt/ti/ccs*/ccs
+    do
+        if [ -d "$CCS_CANDIDATE" ]; then
+            CCS_ROOT="$CCS_CANDIDATE"
+            break
+        fi
+    done
+fi
 
-case "${UNAME_OUT}" in
-    Darwin*)
-        LIBJVM_PATH=${CCS_ROOT}/eclipse/Ccstudio.app/jre/Contents/Home/lib/jli
-        LIBJVM_NAME=libjli.dylib
-        ;;
-    Linux* | *)
-        LIBJVM_PATH=${CCS_ROOT}/eclipse/jre/lib/amd64/server
-        LIBJVM_NAME=libjvm.so
-        ;;
-esac
-
-if [ ! -f "${LIBJVM_PATH}/${LIBJVM_NAME}" ]; then
-    echo "libjvm path configured in flash-rover is wrong, please verify LIBJVM_PATH is correct before continuing"
+if [ -z "$CCS_ROOT" ]; then
+    echo "ERROR: Could not find CCS installation"
+    echo "Please set the CCS_ROOT environment variable to your CCS install path"
+    echo "Example: export CCS_ROOT=\${HOME}/ti/ccs2020/ccs"
     exit 1
 fi
 
+# Find libjvm.so
+LIBJVM_PATHS=(
+    "${CCS_ROOT}/eclipse/jre/lib/server/libjvm.so"
+    "${CCS_ROOT}/eclipse/jre/lib/amd64/server/libjvm.so"
+)
+
+for LIBJVM_CANDIDATE in "${LIBJVM_PATHS[@]}"; do
+    if [ -f "$LIBJVM_CANDIDATE" ]; then
+        LIBJVM_PATH=$(dirname "$LIBJVM_CANDIDATE")
+        LIBJVM_NAME=$(basename "$LIBJVM_CANDIDATE")
+        break
+    fi
+done
+
+if [ -z "$LIBJVM_PATH" ]; then
+    echo "ERROR: Could not find libjvm.so"
+    echo "CCS_ROOT=$CCS_ROOT"
+    exit 1
+fi
+
+export CCS_ROOT
 export LD_LIBRARY_PATH=${LIBJVM_PATH}
 
 exec "$CURR_DIR/ti-xflash" "$@"

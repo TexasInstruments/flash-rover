@@ -1,7 +1,7 @@
 
 # flash-rover
 
-# Moved from https://github.com/ti-simplelink/flash-rover
+> Moved from https://github.com/ti-simplelink/flash-rover
 <p align="center">
     <img width="200" alt="flash-rover logo" src="icon.png">
 </p>
@@ -13,7 +13,7 @@ on the TI device is also left untouched while *flash-rover* is accessing the
 external flash, meaning no need to manually flash the TI device with some
 firmware. *flash-rover* supports Windows, Linux and macOS, with binary downloads
 available for [every
-release](https://github.com/ti-simplelink/flash-rover/releases).
+release](https://github.com/TexasInstruments/flash-rover/releases).
 
 Released under BSD-3-Clause license.
 
@@ -39,6 +39,8 @@ The following TI devices are supported:
     * [CC2650]
 * **CC26x0R2**:
     * [CC2640R2F]
+* **CC13x1/CC26x1**:
+    * [CC1311P3]
 * **CC13x2/CC26x2**:
     * [CC1312R]
     * [CC1352P]
@@ -47,12 +49,12 @@ The following TI devices are supported:
     * [CC2652P]
     * [CC2652R]
     * [CC2652RB]
-* **CC13x2x7/CC26x2x7**
+* **CC13x2x7/CC26x2x7**:
     * [CC1312R7]
     * [CC1352P7]
     * [CC2652P7]
     * [CC2652R7]
-* **CC13x4/CC26x4**
+* **CC13x4/CC26x4**:
     * [CC1314R10]
     * [CC1354P10]
 
@@ -63,7 +65,7 @@ boards are:
 
 Currently known supported external flash hardware are:
 * Macronix MX25R
-* WinBond W25X 
+* WinBond W25X
 
 Note that other external flash hardware which are not listed above, but are
 functionally compatible, will most likely work with *flash-rover*.
@@ -72,7 +74,7 @@ functionally compatible, will most likely work with *flash-rover*.
 ## Usage
 
 Download the correct zip folder for your operating system from the [Releases
-page](https://github.com/ti-simplelink/flash-rover/releases) and extract the zip
+page](https://github.com/TexasInstruments/flash-rover/releases) and extract the zip
 folder under the `<CCS_ROOT>/utils/` folder, where `<CCS_ROOT>` is your locally
 installed [CCS].
 
@@ -83,12 +85,46 @@ $ cd flash-rover
 $ ls
 flash-rover  ti-xflash
 $ ./flash-rover --version
-flash-rover 0.3.3
+flash-rover <VERSION>
 ```
 
 If you want to, you can add the `<CCS_ROOT>/utils/flash-rover/` path to the
 environment `PATH` variable in order to invoke flash-rover from any context, or
 `cd` into the directory of the executable.
+
+### Setting CCS_ROOT (Linux, macOS and Windows)
+
+The launcher scripts automatically search for CCS in common installation paths.
+If your CCS installation is not found, set the `CCS_ROOT` environment variable
+to the path of your CCS installation.
+
+**Linux / macOS** — set for the current session:
+
+```bash
+$ export CCS_ROOT=~/ti/ccs2020/ccs
+$ ./flash-rover --version
+```
+
+To make this permanent, add the export to your shell profile:
+
+```bash
+$ echo 'export CCS_ROOT=~/ti/ccs2020/ccs' >> ~/.bashrc
+$ source ~/.bashrc
+```
+
+**Windows** — set for the current session in Command Prompt:
+
+```bat
+> set CCS_ROOT=C:\ti\ccs2020\ccs
+> flash-rover.bat --version
+```
+
+To make this permanent, set it as a user environment variable via
+*System Properties > Environment Variables* and add `CCS_ROOT` pointing to
+your CCS installation folder (for example `C:\ti\ccs2020\ccs`).
+
+When `CCS_ROOT` is set, *flash-rover* does not need to be placed inside the
+CCS directory and can be run from any location.
 
 Refer to the help menu of the executable for documentation on the CLI and the
 different subcommands:
@@ -99,11 +135,10 @@ $ flash-rover help write
 $ flash-rover write --help
 ```
 
-Note that it is required that *flash-rover* is placed and called from
-`<CCS_ROOT>/utils/flash-rover/` folder in order to properly work, where
-`<CCS_ROOT>` contains the `ccs_base/` folder. This is because some environment
-variables are required to be setup before invoking the executable, which is done
-by the startup script.
+Note that by default *flash-rover* expects to be placed under
+`<CCS_ROOT>/utils/flash-rover/` so the launcher script can locate the CCS
+installation automatically. If CCS is installed in a non-standard location, set
+`CCS_ROOT` as described above and *flash-rover* can be run from any directory.
 
 
 ### Examples
@@ -179,15 +214,15 @@ than building from source.
 The CLI is written in Rust and the device firmware is written in C++. Building
 the CLI requires in general the latest stable release of the Rust compiler. See
 [rustup] on how to install Rust. There already exists pre-compiled binaries of
-the device firmware under `xflash/src/assets/fw`, however, building the device
+the device firmware under `src/assets/fw`, however, building the device
 firmware requires CCS version 9.0 or later.
 
-In order to build *flash-rover* from source you will have to have Jave
+In order to build *flash-rover* from source you will have to have Java
 Development Kit (JDK) installed, and the `JAVA_HOME` environment variable must
 point to the location of the installed JDK.
 
 ```bash
-$ git clone https://github.com/ti-simplelink/flash-rover
+$ git clone https://github.com/TexasInstruments/flash-rover
 $ cd flash-rover
 $ export JAVA_HOME=/path/to/installed/jdk
 $ cargo build --release
@@ -204,6 +239,7 @@ You must then copy the `flash-rover/` folder under `output/` to the
 [DSS]:       http://dev.ti.com/tirex/explore/node?node=AO6UKsAhivhxn6EDOzuszQ__FUz-xrs__LATEST
 [CCS]:       http://www.ti.com/tool/CCSTUDIO
 [CC1310]:    http://www.ti.com/product/CC1310
+[CC1311P3]:  https://www.ti.com/product/CC1311P3
 [CC1312R]:   http://www.ti.com/product/CC1312R
 [CC1350]:    http://www.ti.com/product/CC1350
 [CC1352P]:   http://www.ti.com/product/CC1352P
